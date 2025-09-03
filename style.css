@@ -180,18 +180,13 @@ h1 {
 }
 
 @media (max-width: 600px) {
-  body {
-    padding: 20px 10px;
+  .hall-layout {
+    grid-template-columns: 1fr 20px 1fr;
   }
 
-  .table {
-    width: 80px;
-    height: 80px;
-    font-size: 12px;
-  }
-
-  .hall-center {
-    display: none;
+  .table-section {
+    flex-wrap: wrap;
+    justify-content: center;
   }
 
   .table-column {
@@ -200,13 +195,26 @@ h1 {
     justify-content: center;
   }
 
+  .table {
+    width: 80px;
+    height: 80px;
+    font-size: 12px;
+  }
+
+  /* KEEP the grey bar visible */
+  .hall-center {
+    display: block;
+    height: auto; /* Optional: you can define a height if needed */
+  }
+
   .bottom-buttons {
     flex-direction: column;
     max-width: 300px;
-    gap: 10px;
   }
 
   .bottom-buttons button {
     max-width: 100%;
+    margin-bottom: 10px;
   }
 }
+
