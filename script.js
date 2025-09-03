@@ -32,19 +32,27 @@ document.addEventListener('DOMContentLoaded', () => {
   autoBookingContainer.style.textAlign = "center";
 
   const autoNameSelect = document.createElement('select');
-  autoNameSelect.id = "autoNameSelect";
-  autoNameSelect.style.marginRight = "10px";
+autoNameSelect.id = "autoNameSelect";
+autoNameSelect.style.marginRight = "10px";
+autoNameSelect.style.fontSize = "18px";
+autoNameSelect.style.padding = "8px 12px";
+autoNameSelect.style.minWidth = "180px";
 
-  const autoPaxInput = document.createElement('input');
-  autoPaxInput.type = "number";
-  autoPaxInput.min = "1";
-  autoPaxInput.placeholder = "Number of Pax";
-  autoPaxInput.style.width = "120px";
-  autoPaxInput.style.marginRight = "10px";
+const autoPaxInput = document.createElement('input');
+autoPaxInput.type = "number";
+autoPaxInput.min = "1";
+autoPaxInput.placeholder = "Number of Pax";
+autoPaxInput.style.width = "150px";
+autoPaxInput.style.marginRight = "10px";
+autoPaxInput.style.fontSize = "18px";
+autoPaxInput.style.padding = "8px 12px";
 
-  const autoBookBtn = document.createElement('button');
-  autoBookBtn.textContent = "Auto Allocate Table(s)";
-  autoBookBtn.style.padding = "6px 12px";
+const autoBookBtn = document.createElement('button');
+autoBookBtn.textContent = "Auto Allocate Table(s)";
+autoBookBtn.style.padding = "12px 20px";
+autoBookBtn.style.fontSize = "18px";
+autoBookBtn.style.cursor = "pointer";
+
 
   autoBookingContainer.appendChild(autoNameSelect);
   autoBookingContainer.appendChild(autoPaxInput);
