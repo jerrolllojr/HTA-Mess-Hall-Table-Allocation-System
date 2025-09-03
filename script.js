@@ -1,3 +1,9 @@
+console.log('DOM loaded');
+
+document.addEventListener('DOMContentLoaded', () => {
+  console.log('Starting script');
+
+
 // Import required Firebase functions for Realtime Database
 import { ref, get, onValue, set } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
@@ -460,4 +466,5 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 });
+
 
