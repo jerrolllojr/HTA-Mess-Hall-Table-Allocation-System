@@ -218,3 +218,44 @@ h1 {
   }
 }
 
+/* Target inputs and buttons inside auto allocation container */
+#autoBookingContainer button,
+#autoBookingContainer input,
+#autoBookingContainer select {
+  font-size: 1.25rem;        /* Larger, readable font */
+  padding: 14px 24px;        /* More padding for bigger click area */
+  border-radius: 8px;        /* Rounded corners for better feel */
+  min-width: 160px;          /* Ensure enough width */
+  box-sizing: border-box;    /* Include padding in width */
+  margin-right: 12px;        /* Space between elements */
+  border: 2px solid #2196f3; /* Use your blue color for border */
+  background-color: white;
+  color: #2196f3;
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* Number input width adjustment */
+#autoBookingContainer input[type="number"] {
+  width: 180px;              /* Wider for easier input */
+}
+
+/* Button hover effect */
+#autoBookingContainer button:hover {
+  background-color: #2196f3;
+  color: white;
+  border-color: #1769aa;
+}
+
+/* If you want inputs to have a consistent style */
+#autoBookingContainer input,
+#autoBookingContainer select {
+  cursor: text; /* text cursor for inputs */
+}
+
+/* Remove margin on last input/button for clean alignment */
+#autoBookingContainer button:last-child,
+#autoBookingContainer input:last-child,
+#autoBookingContainer select:last-child {
+  margin-right: 0;
+}
