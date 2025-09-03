@@ -1,3 +1,6 @@
+// Import required Firebase functions for Realtime Database
+import { ref, get, onValue, set } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
 console.log('script.js loaded');
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -67,10 +70,10 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Firebase Realtime Database references
-  const db = window.database;
-  const bookingsRef = firebase.database().ref('bookings');
-  const seatsTakenRef = firebase.database().ref('seatsTaken');
-  const presetNamesRef = firebase.database().ref('presetNames');
+  const db = window.database; // from your firebase initialization in HTML
+  const bookingsRef = ref(db, 'bookings');
+  const seatsTakenRef = ref(db, 'seatsTaken');
+  const presetNamesRef = ref(db, 'presetNames');
 
   // Initialize data containers
   let bookings = {};
@@ -83,60 +86,57 @@ document.addEventListener('DOMContentLoaded', () => {
   clearAllBtn.disabled = true;
 
   // Fetch initial data from Firebase and set up listeners
-  Promise.all([
-    bookingsRef.once('value'),
-    seatsTakenRef.once('value'),
-    presetNamesRef.once('value')
-  ]).then(([bookingsSnap, seatsTakenSnap, presetNamesSnap]) => {
-    bookings = bookingsSnap.exists() ? bookingsSnap.val() : {};
-    seatsTaken = seatsTakenSnap.exists() ? seatsTakenSnap.val() : {};
-    presetNames = presetNamesSnap.exists() ? presetNamesSnap.val() : [
-      "CC4/25", "C5/24", "C1/25", "C2/25", "C3/25", "C4/25", "C5/25", "C6/25", "C7/25", "C8/25",
-      "R2/25", "R3/25", "R4/25", "R5/25", "R6/25", "R7/25", "R8/25", "R9/25", "R10/25",
-      "NS26", "NS27", "NS28", "NS29", "NS30", "NS31", "NS32", "NS33", "NS34", "NS35",
-      "NS36", "NS37", "NS38", "NS39", "NS40", "NS41", "NS42", "NS43", "NS44", "NS45",
-      "NS46", "NS47", "NS48", "NS49", "NS50",
-      "OCT/01", "OCT/02", "OCT/03", "OCT/04", "SPTI-02", "SPTI-03", "ICA INSP 03/25", "ICA INSP 04/25",
-      "ICA INSP 05/25", "ICA INSP 06/25", "ICA INSP 07/25", "ICA SGT 03/25", "ICA SGT 04/25", "ICA SGT 05/25", "ICA SGT 06/25", "ICA Alpha", "ICA Bravo", "ICA Charlie"
-    ];
+  Promise.all([get(bookingsRef), get(seatsTakenRef), get(presetNamesRef)])
+    .then(([bookingsSnap, seatsTakenSnap, presetNamesSnap]) => {
+      bookings = bookingsSnap.exists() ? bookingsSnap.val() : {};
+      seatsTaken = seatsTakenSnap.exists() ? seatsTakenSnap.val() : {};
+      presetNames = presetNamesSnap.exists() ? presetNamesSnap.val() : [
+        "CC4/25", "C5/24", "C1/25", "C2/25", "C3/25", "C4/25", "C5/25", "C6/25", "C7/25", "C8/25",
+        "R2/25", "R3/25", "R4/25", "R5/25", "R6/25", "R7/25", "R8/25", "R9/25", "R10/25",
+        "NS26", "NS27", "NS28", "NS29", "NS30", "NS31", "NS32", "NS33", "NS34", "NS35",
+        "NS36", "NS37", "NS38", "NS39", "NS40", "NS41", "NS42", "NS43", "NS44", "NS45",
+        "NS46", "NS47", "NS48", "NS49", "NS50",
+        "OCT/01", "OCT/02", "OCT/03", "OCT/04", "SPTI-02", "SPTI-03", "ICA INSP 03/25", "ICA INSP 04/25",
+        "ICA INSP 05/25", "ICA INSP 06/25", "ICA INSP 07/25", "ICA SGT 03/25", "ICA SGT 04/25", "ICA SGT 05/25", "ICA SGT 06/25", "ICA Alpha", "ICA Bravo", "ICA Charlie"
+      ];
 
-    // Initialize empty bookings and seatsTaken if missing
-    for (let i = 1; i <= 28; i++) {
-      if (!(i in seatsTaken)) seatsTaken[i] = 0;
-      if (!(i in bookings)) bookings[i] = {};
-    }
+      // Initialize empty bookings and seatsTaken if missing
+      for (let i = 1; i <= 28; i++) {
+        if (!(i in seatsTaken)) seatsTaken[i] = 0;
+        if (!(i in bookings)) bookings[i] = {};
+      }
 
-    populateNameSelect();
-    populateAutoNameSelect();
-    refreshTables();
+      populateNameSelect();
+      populateAutoNameSelect();
+      refreshTables();
 
-    // Enable UI after loading data
-    autoBookBtn.disabled = false;
-    manageNamesBtn.disabled = false;
-    clearAllBtn.disabled = false;
-  }).catch(console.error);
+      // Enable UI after loading data
+      autoBookBtn.disabled = false;
+      manageNamesBtn.disabled = false;
+      clearAllBtn.disabled = false;
+    }).catch(console.error);
 
   // Listen for realtime updates from Firebase
-  bookingsRef.on('value', snapshot => {
+  onValue(bookingsRef, (snapshot) => {
     bookings = snapshot.val() || {};
     refreshTables();
   });
 
-  seatsTakenRef.on('value', snapshot => {
+  onValue(seatsTakenRef, (snapshot) => {
     seatsTaken = snapshot.val() || {};
     refreshTables();
   });
 
-  presetNamesRef.on('value', snapshot => {
+  onValue(presetNamesRef, (snapshot) => {
     presetNames = snapshot.val() || [];
     populateNameSelect();
     populateAutoNameSelect();
   });
 
   function saveData() {
-    bookingsRef.set(bookings).catch(console.error);
-    seatsTakenRef.set(seatsTaken).catch(console.error);
-    presetNamesRef.set(presetNames).catch(console.error);
+    set(bookingsRef, bookings).catch(console.error);
+    set(seatsTakenRef, seatsTaken).catch(console.error);
+    set(presetNamesRef, presetNames).catch(console.error);
   }
 
   function createColumn(tableNumbers) {
@@ -205,48 +205,20 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  function populateExitNameSelect(tableNumber) {
-    exitNameSelect.innerHTML = "";
-    const names = Object.keys(bookings[tableNumber] || {});
-    if (names.length === 0) {
-      const option = document.createElement("option");
-      option.value = "";
-      option.textContent = "No bookings";
-      exitNameSelect.appendChild(option);
-      exitNameSelect.disabled = true;
-      exitButton.disabled = true;
-    } else {
-      names.forEach(name => {
-        const option = document.createElement("option");
-        option.value = name;
-        option.textContent = `${name} (${bookings[tableNumber][name]} seats)`;
-        exitNameSelect.appendChild(option);
-      });
-      exitNameSelect.disabled = false;
-      exitButton.disabled = false;
-    }
-  }
-
   function openBookingModal(tableNumber) {
     selectedTableNumber = tableNumber;
-    modalTableNumber.textContent = tableNumber;
-    peopleInput.value = "";
+    modalTableNumber.textContent = `Table ${tableNumber}`;
     errorMessage.textContent = "";
-    populateNameSelect();
-    populateExitNameSelect(tableNumber);
-    bookingModal.classList.remove("hidden");
-    nameSelect.focus();
+    peopleInput.value = "";
+    bookingModal.style.display = "block";
   }
 
-  function closeBookingModal() {
-    bookingModal.classList.add("hidden");
-    selectedTableNumber = null;
-  }
+  cancelButton.addEventListener("click", () => {
+    bookingModal.style.display = "none";
+  });
 
-  bookingForm.addEventListener("submit", e => {
+  bookingForm.addEventListener("submit", (e) => {
     e.preventDefault();
-    if (!selectedTableNumber) return;
-
     const name = nameSelect.value.trim();
     const people = parseInt(peopleInput.value);
 
@@ -254,51 +226,48 @@ document.addEventListener('DOMContentLoaded', () => {
       errorMessage.textContent = "Please select a name.";
       return;
     }
-    if (isNaN(people) || people < 1) {
+
+    if (!people || people < 1) {
       errorMessage.textContent = "Please enter a valid number of people.";
       return;
     }
 
-    const totalSeats = seatCapacity[selectedTableNumber];
-    const currentTaken = seatsTaken[selectedTableNumber] || 0;
-    const currentBookingSeats = bookings[selectedTableNumber]?.[name] || 0;
-    const availableSeats = totalSeats - currentTaken + currentBookingSeats;
+    const tableCapacity = seatCapacity[selectedTableNumber];
+    const currentTaken = seatsTaken[selectedTableNumber] ?? 0;
 
-    if (people > availableSeats) {
-      errorMessage.textContent = `Not enough seats available. Max: ${availableSeats}`;
+    if (currentTaken + people > tableCapacity) {
+      errorMessage.textContent = "Not enough seats available at this table.";
       return;
     }
 
     // Update bookings and seatsTaken
-    if (!bookings[selectedTableNumber]) bookings[selectedTableNumber] = {};
-    bookings[selectedTableNumber][name] = people;
-
-    seatsTaken[selectedTableNumber] = totalSeats; // recalc to be safe
-    // recalc seatsTaken for table:
-    let sum = 0;
-    for (const seats of Object.values(bookings[selectedTableNumber])) {
-      sum += seats;
+    if (!bookings[selectedTableNumber]) {
+      bookings[selectedTableNumber] = {};
     }
-    seatsTaken[selectedTableNumber] = sum;
+
+    if (bookings[selectedTableNumber][name]) {
+      bookings[selectedTableNumber][name] += people;
+    } else {
+      bookings[selectedTableNumber][name] = people;
+    }
+
+    seatsTaken[selectedTableNumber] = currentTaken + people;
 
     saveData();
+
+    bookingModal.style.display = "none";
     refreshTables();
-    closeBookingModal();
   });
 
-  cancelButton.addEventListener("click", e => {
-    e.preventDefault();
-    closeBookingModal();
-  });
-
-  // Manage Names Modal
+  // Manage Names Modal Logic
   manageNamesBtn.addEventListener("click", () => {
-    manageNamesModal.classList.remove("hidden");
+    manageNamesModal.style.display = "block";
     renderNamesList();
+    newNameInput.value = "";
   });
 
   cancelNamesBtn.addEventListener("click", () => {
-    manageNamesModal.classList.add("hidden");
+    manageNamesModal.style.display = "none";
   });
 
   addNameBtn.addEventListener("click", () => {
@@ -307,118 +276,189 @@ document.addEventListener('DOMContentLoaded', () => {
       presetNames.push(newName);
       newNameInput.value = "";
       renderNamesList();
+      populateNameSelect();
+      populateAutoNameSelect();
     }
   });
 
   saveNamesBtn.addEventListener("click", () => {
-    presetNames = Array.from(new Set(presetNames.map(name => name.trim()))).filter(Boolean);
     saveData();
-    populateNameSelect();
-    populateAutoNameSelect();
-    manageNamesModal.classList.add("hidden");
+    manageNamesModal.style.display = "none";
   });
 
   function renderNamesList() {
     namesList.innerHTML = "";
     presetNames.forEach((name, idx) => {
       const li = document.createElement("li");
-      li.textContent = name + " ";
-      const deleteBtn = document.createElement("button");
-      deleteBtn.textContent = "Delete";
-      deleteBtn.style.marginLeft = "10px";
-      deleteBtn.addEventListener("click", () => {
-        presetNames.splice(idx, 1);
-        renderNamesList();
+      li.textContent = name;
+      li.style.cursor = "pointer";
+      li.title = "Click to remove";
+
+      li.addEventListener("click", () => {
+        if (confirm(`Remove "${name}" from the list?`)) {
+          presetNames.splice(idx, 1);
+          renderNamesList();
+          populateNameSelect();
+          populateAutoNameSelect();
+        }
       });
-      li.appendChild(deleteBtn);
+
       namesList.appendChild(li);
     });
   }
 
-  // Exit booking from table
+  // Exit Table Booking Logic
   exitButton.addEventListener("click", () => {
-    if (!selectedTableNumber) return;
-
-    const nameToRemove = exitNameSelect.value;
-    if (!nameToRemove || !(bookings[selectedTableNumber]?.[nameToRemove])) return;
-
-    delete bookings[selectedTableNumber][nameToRemove];
-
-    // Recalculate seatsTaken
-    let sum = 0;
-    for (const seats of Object.values(bookings[selectedTableNumber])) {
-      sum += seats;
+    const name = exitNameSelect.value.trim();
+    if (!name) {
+      alert("Please select a name to exit.");
+      return;
     }
-    seatsTaken[selectedTableNumber] = sum;
+
+    let found = false;
+    for (const [table, names] of Object.entries(bookings)) {
+      if (names[name]) {
+        const seats = names[name];
+        delete bookings[table][name];
+        seatsTaken[table] -= seats;
+        if (seatsTaken[table] < 0) seatsTaken[table] = 0;
+        found = true;
+        break;
+      }
+    }
+
+    if (!found) {
+      alert(`${name} is not currently booked at any table.`);
+      return;
+    }
 
     saveData();
     refreshTables();
-    closeBookingModal();
+    alert(`${name} has been exited from their booking.`);
   });
 
-  // Clear All Bookings
+  // Populate exitNameSelect
+  function populateExitNameSelect() {
+    const uniqueNames = new Set();
+    for (const names of Object.values(bookings)) {
+      for (const name of Object.keys(names)) {
+        uniqueNames.add(name);
+      }
+    }
+
+    exitNameSelect.innerHTML = "";
+    if (uniqueNames.size === 0) {
+      const option = document.createElement('option');
+      option.textContent = 'No bookings found';
+      option.value = '';
+      exitNameSelect.appendChild(option);
+    } else {
+      uniqueNames.forEach(name => {
+        const option = document.createElement('option');
+        option.value = name;
+        option.textContent = name;
+        exitNameSelect.appendChild(option);
+      });
+    }
+  }
+
+  // Update exitNameSelect whenever bookings change
+  function updateExitSelectOnBookingsChange() {
+    populateExitNameSelect();
+  }
+
+  // Call once initially after data load
+  updateExitSelectOnBookingsChange();
+
+  // Listen to bookings change to update exit list
+  onValue(bookingsRef, (snapshot) => {
+    bookings = snapshot.val() || {};
+    refreshTables();
+    updateExitSelectOnBookingsChange();
+  });
+
+  // Clear All Bookings Logic
   clearAllBtn.addEventListener("click", () => {
     if (confirm("Are you sure you want to clear all bookings?")) {
       bookings = {};
       seatsTaken = {};
       for (let i = 1; i <= 28; i++) {
-        bookings[i] = {};
         seatsTaken[i] = 0;
       }
       saveData();
       refreshTables();
+      updateExitSelectOnBookingsChange();
     }
   });
 
-  // Auto Booking Logic
+  // Auto Book Logic
   autoBookBtn.addEventListener("click", () => {
     const name = autoNameSelect.value.trim();
     const pax = parseInt(autoPaxInput.value);
 
     if (!name) {
-      alert("Please select a name for auto booking.");
+      alert("Please select a name.");
       return;
     }
-    if (isNaN(pax) || pax < 1) {
+    if (!pax || pax < 1) {
       alert("Please enter a valid number of pax.");
       return;
     }
 
-    const tablesToBook = [];
-    let paxLeft = pax;
+    // Try to allocate tables automatically
+    // Strategy: find tables with available seats, fill in order until pax is satisfied
 
-    // Sort tables by available seats descending
-    const tables = Object.keys(seatCapacity).map(Number).sort((a, b) => {
-      const availableA = seatCapacity[a] - (seatsTaken[a] || 0);
-      const availableB = seatCapacity[b] - (seatsTaken[b] || 0);
-      return availableB - availableA;
-    });
+    let remainingPax = pax;
+    let allocation = [];
 
-    for (const table of tables) {
-      const availableSeats = seatCapacity[table] - (seatsTaken[table] || 0);
-      if (availableSeats <= 0) continue;
+    // Tables sorted by available seats descending
+    const tablesByAvailability = Object.keys(seatCapacity).map(t => {
+      const tNum = parseInt(t);
+      const capacity = seatCapacity[tNum];
+      const taken = seatsTaken[tNum] || 0;
+      return {
+        table: tNum,
+        available: capacity - taken
+      };
+    }).filter(t => t.available > 0)
+      .sort((a, b) => b.available - a.available);
 
-      const seatsToBook = Math.min(availableSeats, paxLeft);
-
-      if (!bookings[table]) bookings[table] = {};
-      bookings[table][name] = (bookings[table][name] || 0) + seatsToBook;
-
-      seatsTaken[table] = (seatsTaken[table] || 0) + seatsToBook;
-
-      paxLeft -= seatsToBook;
-      tablesToBook.push(table);
-
-      if (paxLeft <= 0) break;
+    for (const t of tablesByAvailability) {
+      if (remainingPax <= 0) break;
+      const seatsToBook = Math.min(remainingPax, t.available);
+      allocation.push({ table: t.table, seats: seatsToBook });
+      remainingPax -= seatsToBook;
     }
 
-    if (paxLeft > 0) {
-      alert(`Not enough seats available to book ${pax} seats for ${name}. Only booked ${pax - paxLeft}.`);
-    } else {
-      alert(`Successfully booked ${pax} seats for ${name} across tables: ${tablesToBook.join(', ')}`);
+    if (remainingPax > 0) {
+      alert(`Not enough seats available to accommodate ${pax} pax.`);
+      return;
+    }
+
+    // Apply allocation to bookings and seatsTaken
+    for (const { table, seats } of allocation) {
+      if (!bookings[table]) bookings[table] = {};
+      if (bookings[table][name]) {
+        bookings[table][name] += seats;
+      } else {
+        bookings[table][name] = seats;
+      }
+      seatsTaken[table] = (seatsTaken[table] || 0) + seats;
     }
 
     saveData();
     refreshTables();
+    alert(`Successfully allocated ${pax} seats for ${name}.`);
+    autoPaxInput.value = "";
+  });
+
+  // Close modals when clicking outside modal content
+  window.addEventListener("click", (e) => {
+    if (e.target === bookingModal) {
+      bookingModal.style.display = "none";
+    }
+    if (e.target === manageNamesModal) {
+      manageNamesModal.style.display = "none";
+    }
   });
 });
-
