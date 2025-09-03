@@ -1,8 +1,6 @@
 // Import required Firebase functions for Realtime Database
 import { ref, get, onValue, set } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
-console.log('script.js loaded');
-
 document.addEventListener('DOMContentLoaded', () => {
   const leftSide = document.getElementById("leftSide");
   const rightSide = document.getElementById("rightSide");
@@ -462,3 +460,4 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 });
+
