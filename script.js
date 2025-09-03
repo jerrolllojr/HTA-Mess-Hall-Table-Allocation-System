@@ -25,16 +25,42 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let selectedTableNumber = null;
 
+  // --- AUTO BOOK UI Elements ---
+  // We'll create them dynamically and insert above the hall layout
+  const autoBookingContainer = document.createElement('div');
+  autoBookingContainer.style.margin = "20px 0";
+  autoBookingContainer.style.textAlign = "center";
+
+  const autoNameSelect = document.createElement('select');
+  autoNameSelect.id = "autoNameSelect";
+  autoNameSelect.style.marginRight = "10px";
+
+  const autoPaxInput = document.createElement('input');
+  autoPaxInput.type = "number";
+  autoPaxInput.min = "1";
+  autoPaxInput.placeholder = "Number of Pax";
+  autoPaxInput.style.width = "120px";
+  autoPaxInput.style.marginRight = "10px";
+
+  const autoBookBtn = document.createElement('button');
+  autoBookBtn.textContent = "Auto Allocate Table(s)";
+  autoBookBtn.style.padding = "6px 12px";
+
+  autoBookingContainer.appendChild(autoNameSelect);
+  autoBookingContainer.appendChild(autoPaxInput);
+  autoBookingContainer.appendChild(autoBookBtn);
+
+  document.body.insertBefore(autoBookingContainer, document.querySelector('.hall-layout'));
+
   // Load data from localStorage or initialize defaults
   let presetNames = JSON.parse(localStorage.getItem('presetNames')) || [
-	"CC4/25", "C5/24", "C1/25", "C2/25", "C3/25", "C4/25", "C5/25", "C6/25", "C7/25", "C8/25",
-        "R2/25", "R3/25", "R4/25", "R5/25", "R6/25", "R7/25", "R8/25", "R9/25", "R10/25",
-        "NS26", "NS27", "NS28", "NS29", "NS30", "NS31", "NS32", "NS33", "NS34", "NS35",
-        "NS36", "NS37", "NS38", "NS39", "NS40", "NS41", "NS42", "NS43", "NS44", "NS45",
-        "NS46", "NS47", "NS48", "NS49", "NS50",
-        "OCT/01", "OCT/02", "OCT/03", "OCT/04", "SPTI-02", "SPTI-03", "ICA INSP 03/25", "ICA INSP 04/25",
-	"ICA INSP 05/25", "ICA INSP 06/25", "ICA INSP 07/25", "ICA SGT 03/25", "ICA SGT 04/25", "ICA SGT 05/25", "ICA SGT 06/25", "ICA Alpha", "ICA Bravo", "ICA Charlie"
-
+    "CC4/25", "C5/24", "C1/25", "C2/25", "C3/25", "C4/25", "C5/25", "C6/25", "C7/25", "C8/25",
+    "R2/25", "R3/25", "R4/25", "R5/25", "R6/25", "R7/25", "R8/25", "R9/25", "R10/25",
+    "NS26", "NS27", "NS28", "NS29", "NS30", "NS31", "NS32", "NS33", "NS34", "NS35",
+    "NS36", "NS37", "NS38", "NS39", "NS40", "NS41", "NS42", "NS43", "NS44", "NS45",
+    "NS46", "NS47", "NS48", "NS49", "NS50",
+    "OCT/01", "OCT/02", "OCT/03", "OCT/04", "SPTI-02", "SPTI-03", "ICA INSP 03/25", "ICA INSP 04/25",
+    "ICA INSP 05/25", "ICA INSP 06/25", "ICA INSP 07/25", "ICA SGT 03/25", "ICA SGT 04/25", "ICA SGT 05/25", "ICA SGT 06/25", "ICA Alpha", "ICA Bravo", "ICA Charlie"
   ];
 
   const seatCapacity = {};
@@ -78,8 +104,8 @@ document.addEventListener('DOMContentLoaded', () => {
       for (const [name, seats] of Object.entries(tableBookings)) {
         namesText += `${name} (${seats})\n`;
       }
-      table.innerHTML = `Table ${i}<br />${taken}/${totalSeats}` + 
-                        (namesText ? `<br /><small style="white-space: pre-wrap;">${namesText.trim()}</small>` : "");
+      table.innerHTML = `Table ${i}<br />${taken}/${totalSeats}` +
+        (namesText ? `<br /><small style="white-space: pre-wrap;">${namesText.trim()}</small>` : "");
 
       // Allow opening modal for all tables to enable exit even if full
       table.addEventListener("click", () => openBookingModal(i));
@@ -95,12 +121,12 @@ document.addEventListener('DOMContentLoaded', () => {
     rightSide.innerHTML = "";
 
     // Left side columns
-    leftSide.appendChild(createColumn([15,16,17,18,19,20,21,22,23]));
-    leftSide.appendChild(createColumn([24,25,26,27,28]));
+    leftSide.appendChild(createColumn([15, 16, 17, 18, 19, 20, 21, 22, 23]));
+    leftSide.appendChild(createColumn([24, 25, 26, 27, 28]));
 
     // Right side columns
-    rightSide.appendChild(createColumn([1,2,3,4,5,6,7]));
-    rightSide.appendChild(createColumn([8,9,10,11,12,13,14]));
+    rightSide.appendChild(createColumn([1, 2, 3, 4, 5, 6, 7]));
+    rightSide.appendChild(createColumn([8, 9, 10, 11, 12, 13, 14]));
   }
 
   function populateNameSelect() {
@@ -244,25 +270,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function renderNamesList() {
     namesList.innerHTML = "";
-    presetNames.forEach((name, idx) => {
+    presetNames.forEach(name => {
       const li = document.createElement("li");
-      li.textContent = name;
-
-      const deleteBtn = document.createElement("button");
-      deleteBtn.textContent = "X";
-      deleteBtn.title = "Remove Name";
-      deleteBtn.addEventListener("click", () => {
-        presetNames.splice(idx, 1);
+      li.textContent = name + " ";
+      const delBtn = document.createElement("button");
+      delBtn.textContent = "Delete";
+      delBtn.style.marginLeft = "10px";
+      delBtn.addEventListener("click", () => {
+        presetNames = presetNames.filter(n => n !== name);
         renderNamesList();
       });
-
-      li.appendChild(deleteBtn);
+      li.appendChild(delBtn);
       namesList.appendChild(li);
     });
   }
 
   saveNamesBtn.addEventListener("click", () => {
-    localStorage.setItem('presetNames', JSON.stringify(presetNames));
+    localStorage.setItem("presetNames", JSON.stringify(presetNames));
+    populateNameSelect();
+    populateAutoNameSelect();
     closeManageNamesModal();
   });
 
@@ -270,23 +296,187 @@ document.addEventListener('DOMContentLoaded', () => {
     closeManageNamesModal();
   });
 
-  // Clear all bookings button
+  // Clear all bookings
   clearAllBtn.addEventListener("click", () => {
     if (confirm("Are you sure you want to clear all bookings?")) {
       for (let i = 1; i <= 28; i++) {
-        seatsTaken[i] = 0;
         bookings[i] = {};
+        seatsTaken[i] = 0;
       }
       saveData();
       refreshTables();
     }
   });
 
+  // Save seatsTaken and bookings to localStorage
   function saveData() {
-    localStorage.setItem('seatsTaken', JSON.stringify(seatsTaken));
-    localStorage.setItem('bookings', JSON.stringify(bookings));
+    localStorage.setItem("seatsTaken", JSON.stringify(seatsTaken));
+    localStorage.setItem("bookings", JSON.stringify(bookings));
   }
 
-  // Initial render
+  // Populate autoNameSelect dropdown with presetNames
+  function populateAutoNameSelect() {
+    autoNameSelect.innerHTML = "";
+    presetNames.forEach(name => {
+      const option = document.createElement("option");
+      option.value = name;
+      option.textContent = name;
+      autoNameSelect.appendChild(option);
+    });
+  }
+
+  // --- AUTO ALLOCATION FUNCTION ---
+  // PRIORITY: Allocate squads >=31 pax to 36-seat tables (16, 17, 18) first, then others
+function allocateTables(name, pax) {
+  if (!name || pax < 1) return { success: false, allocation: {} };
+
+  let remainingPax = pax;
+  const allocation = {};
+
+  // Helper: allocate seats on given tables
+  // If requireEmpty === true, allocate only on empty tables
+  // If requireEmpty === false, allocate on partially filled or empty tables
+  // But we'll add special logic outside to prioritize partially filled tables that can fit entire squad
+  function allocateOnTables(tables, requireEmpty = false) {
+    for (const tableNum of tables) {
+      if (remainingPax <= 0) break;
+
+      const capacity = seatCapacity[tableNum];
+      const taken = seatsTaken[tableNum];
+      const available = capacity - taken;
+
+      if (available <= 0) continue;
+
+      if (requireEmpty && taken > 0) continue;
+
+      // Allocate as much as possible
+      const allocateSeats = Math.min(remainingPax, available);
+
+      if (allocateSeats > 0) {
+        if (!bookings[tableNum]) bookings[tableNum] = {};
+        bookings[tableNum][name] = (bookings[tableNum][name] || 0) + allocateSeats;
+        seatsTaken[tableNum] = taken + allocateSeats;
+
+        allocation[tableNum] = (allocation[tableNum] || 0) + allocateSeats;
+
+        remainingPax -= allocateSeats;
+      }
+    }
+  }
+
+  // Decide table groups: prioritize 36-seat tables if pax >= 31
+  let priorityTables = [];
+  let otherTables = [];
+  for (let i = 1; i <= 28; i++) {
+    if (pax >= 31 && [16, 17, 18].includes(i)) {
+      priorityTables.push(i);
+    } else {
+      otherTables.push(i);
+    }
+  }
+
+  // --- NEW LOGIC ---
+  // First, try to find any partially filled table that can fit entire squad at once
+  // Priority on 36-seat tables for big squads
+  function findSingleTableForEntireSquad(tables) {
+    for (const tableNum of tables) {
+      const capacity = seatCapacity[tableNum];
+      const taken = seatsTaken[tableNum];
+      const available = capacity - taken;
+
+      if (available >= remainingPax && taken > 0) {
+        // Allocate all at once here
+        if (!bookings[tableNum]) bookings[tableNum] = {};
+        bookings[tableNum][name] = (bookings[tableNum][name] || 0) + remainingPax;
+        seatsTaken[tableNum] = taken + remainingPax;
+
+        allocation[tableNum] = (allocation[tableNum] || 0) + remainingPax;
+
+        remainingPax = 0;
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // Try partially filled tables that can fit entire squad (priority tables first)
+  if (!findSingleTableForEntireSquad(priorityTables)) {
+    // If not allocated, try other tables too
+    findSingleTableForEntireSquad(otherTables);
+  }
+
+  if (remainingPax > 0) {
+    // Then allocate on empty priority tables
+    allocateOnTables(priorityTables, true);
+  }
+
+  if (remainingPax > 0) {
+    // Then allocate on empty other tables
+    allocateOnTables(otherTables, true);
+  }
+
+  if (remainingPax > 0) {
+    // Spillover partially filled priority tables
+    allocateOnTables(priorityTables, false);
+  }
+
+  if (remainingPax > 0) {
+    // Spillover partially filled other tables
+    allocateOnTables(otherTables, false);
+  }
+
+  saveData();
+  refreshTables();
+
+  if (remainingPax > 0) {
+    alert(`Not enough seats available for all ${pax} pax. Only allocated ${pax - remainingPax} seats.`);
+  }
+
+  return { success: remainingPax === 0, allocation };
+}
+
+
+
+
+  autoBookBtn.addEventListener("click", () => {
+    const name = autoNameSelect.value;
+    const pax = parseInt(autoPaxInput.value);
+
+    if (!name) {
+      alert("Please select a name.");
+      return;
+    }
+    if (!pax || pax < 1) {
+      alert("Please enter a valid number of pax.");
+      return;
+    }
+
+    const result = allocateTables(name, pax);
+
+ // Build allocation message
+  let message = "";
+  if (Object.keys(result.allocation).length > 0) {
+    message += `Allocated seats for ${name}:\n`;
+    for (const [table, seats] of Object.entries(result.allocation)) {
+      message += `Table ${table}: ${seats} seat(s)\n`;
+    }
+  }
+
+  if (result.success) {
+    alert(message || `Successfully allocated all ${pax} seats to ${name}.`);
+  } else {
+    alert(
+      message +
+      `\nNot enough seats available for all ${pax} pax. Allocated ${
+        pax - (pax - Object.values(result.allocation).reduce((a, b) => a + b, 0))
+      } seat(s).`
+    );
+  }
+
+    autoPaxInput.value = "";
+  });
+
+  populateNameSelect();
+  populateAutoNameSelect();
   refreshTables();
 });
