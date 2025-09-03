@@ -83,7 +83,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.body.insertBefore(autoBookingContainer, document.querySelector('.hall-layout'));
 
-  // Seat capacity for each table
+  // Seat capacity config
   const seatCapacity = {};
   for (let i = 1; i <= 28; i++) {
     seatCapacity[i] = [16, 17, 18].includes(i) ? 36 : 30;
@@ -222,7 +222,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // --- NEW FUNCTION ---
   // Populate exitNameSelect ONLY for the selected table bookings
   function populateExitNameSelect(tableNumber) {
     exitNameSelect.innerHTML = "";
@@ -249,114 +248,150 @@ document.addEventListener('DOMContentLoaded', () => {
   function openBookingModal(tableNumber) {
     selectedTableNumber = tableNumber;
     modalTableNumber.textContent = `Table ${tableNumber}`;
+    bookingForm.reset();
     errorMessage.textContent = "";
-    peopleInput.value = "";
-
-    // Show current bookings for this table only (optional display element)
-    const tableBookings = bookings[tableNumber] || {};
-    let bookingsText = "";
-
-    for (const [name, seats] of Object.entries(tableBookings)) {
-      bookingsText += `${name} (${seats})<br />`;
-    }
-
-    // Assuming you have an element with ID "currentBookings" inside the modal to show this info
-    const currentBookingsDiv = document.getElementById("currentBookings");
-    if (currentBookingsDiv) {
-      currentBookingsDiv.innerHTML = bookingsText || "No current bookings.";
-    }
-
-    // Populate exitNameSelect dropdown for selected table only
-    populateExitNameSelect(tableNumber);
-
+    populateNameSelect();
     bookingModal.style.display = "block";
   }
+
+  bookingForm.addEventListener("submit", e => {
+    e.preventDefault();
+    const name = nameSelect.value.trim();
+    const pax = Number(peopleInput.value);
+
+    if (!name) {
+      errorMessage.textContent = "Please select a name.";
+      return;
+    }
+    if (isNaN(pax) || pax <= 0) {
+      errorMessage.textContent = "Please enter a valid number of people.";
+      return;
+    }
+
+    const capacity = seatCapacity[selectedTableNumber];
+    const taken = seatsTaken[selectedTableNumber] || 0;
+    if (taken + pax > capacity) {
+      errorMessage.textContent = "Not enough seats available on this table.";
+      return;
+    }
+
+    if (!bookings[selectedTableNumber]) bookings[selectedTableNumber] = {};
+    if (!bookings[selectedTableNumber][name]) bookings[selectedTableNumber][name] = 0;
+    bookings[selectedTableNumber][name] += pax;
+
+    seatsTaken[selectedTableNumber] = taken + pax;
+
+    saveData();
+    bookingModal.style.display = "none";
+    refreshTables();
+  });
 
   cancelButton.addEventListener("click", () => {
     bookingModal.style.display = "none";
   });
 
-  bookingForm.addEventListener("submit", (e) => {
-    e.preventDefault();
-    if (!selectedTableNumber) {
-      alert("Please select a table first.");
-      return;
-    }
-
-    const rawName = nameSelect.value.trim();
-    const seats = parseInt(peopleInput.value);
-
-    if (!rawName) {
-      errorMessage.textContent = "Please select a name.";
-      return;
-    }
-
-    if (isNaN(seats) || seats <= 0) {
-      errorMessage.textContent = "Please enter a valid number of seats.";
-      return;
-    }
-
-    const name = sanitizeKey(rawName);
-
-    // Check capacity
-    const capacity = seatCapacity[selectedTableNumber];
-    const takenSeats = seatsTaken[selectedTableNumber] || 0;
-    const currentSeatsForName = bookings[selectedTableNumber]?.[name] || 0;
-    const newTotal = takenSeats - currentSeatsForName + seats;
-
-    if (newTotal > capacity) {
-      errorMessage.textContent = `Not enough seats available. (${capacity - takenSeats + currentSeatsForName} seats left)`;
-      return;
-    }
-
-    // Update booking
-    if (!bookings[selectedTableNumber]) bookings[selectedTableNumber] = {};
-    bookings[selectedTableNumber][name] = seats;
-
-    seatsTaken[selectedTableNumber] = newTotal;
-
-    saveData();
-    refreshTables();
-    populateExitNameSelect(selectedTableNumber); // Update exit dropdown after booking
-
-    bookingModal.style.display = "none";
+  manageNamesBtn.addEventListener("click", () => {
+    manageNamesModal.style.display = "block";
+    renderNamesList();
+    newNameInput.value = "";
   });
 
-  // --- Updated exitButton listener ---
+  cancelNamesBtn.addEventListener("click", () => {
+    manageNamesModal.style.display = "none";
+  });
+
+  addNameBtn.addEventListener("click", () => {
+    const newName = newNameInput.value.trim();
+    if (newName && !presetNames.includes(newName)) {
+      presetNames.push(newName);
+      renderNamesList();
+      newNameInput.value = "";
+    }
+  });
+
+  saveNamesBtn.addEventListener("click", () => {
+    presetNames = Array.from(new Set(presetNames)).filter(name => name.trim() !== "");
+    saveData();
+    manageNamesModal.style.display = "none";
+    populateNameSelect();
+    populateAutoNameSelect();
+  });
+
+  function renderNamesList() {
+    namesList.innerHTML = "";
+    presetNames.forEach((name, idx) => {
+      const li = document.createElement("li");
+      li.textContent = name;
+
+      const deleteBtn = document.createElement("button");
+      deleteBtn.textContent = "Delete";
+      deleteBtn.style.marginLeft = "10px";
+      deleteBtn.addEventListener("click", () => {
+        presetNames.splice(idx, 1);
+        renderNamesList();
+      });
+
+      li.appendChild(deleteBtn);
+      namesList.appendChild(li);
+    });
+  }
+
+  exitNameSelect.disabled = true;
+  exitButton.disabled = true;
+
   exitButton.addEventListener("click", () => {
-    const rawName = exitNameSelect.value.trim();
-    const name = sanitizeKey(rawName);
+    const nameToRemove = exitNameSelect.value;
+    if (!nameToRemove || !selectedTableNumber) return;
 
-    if (!name) {
-      alert("Please select a name to exit.");
-      return;
-    }
-
-    if (!selectedTableNumber) {
-      alert("Please select a table first.");
-      return;
-    }
-
-    const tableBookings = bookings[selectedTableNumber] || {};
-
-    if (tableBookings[name]) {
-      seatsTaken[selectedTableNumber] -= tableBookings[name];
+    if (bookings[selectedTableNumber] && bookings[selectedTableNumber][nameToRemove]) {
+      const seatsToRemove = bookings[selectedTableNumber][nameToRemove];
+      delete bookings[selectedTableNumber][nameToRemove];
+      seatsTaken[selectedTableNumber] -= seatsToRemove;
       if (seatsTaken[selectedTableNumber] < 0) seatsTaken[selectedTableNumber] = 0;
-
-      delete tableBookings[name];
-      bookings[selectedTableNumber] = tableBookings;
 
       saveData();
       refreshTables();
       populateExitNameSelect(selectedTableNumber);
-
-      alert(`${rawName} has exited and their booking on Table ${selectedTableNumber} is removed.`);
-    } else {
-      alert(`${rawName} has no booking on Table ${selectedTableNumber}.`);
     }
   });
 
-  // --- Auto allocation logic function ---
+  // Update exitNameSelect when a table is clicked for exit action
+  document.getElementById('rightSide').addEventListener('click', e => {
+    if (e.target.classList.contains('table')) {
+      const tableText = e.target.textContent;
+      const match = tableText.match(/Table (\d+)/);
+      if (match) {
+        selectedTableNumber = Number(match[1]);
+        populateExitNameSelect(selectedTableNumber);
+      }
+    }
+  });
+
+  document.getElementById('leftSide').addEventListener('click', e => {
+    if (e.target.classList.contains('table')) {
+      const tableText = e.target.textContent;
+      const match = tableText.match(/Table (\d+)/);
+      if (match) {
+        selectedTableNumber = Number(match[1]);
+        populateExitNameSelect(selectedTableNumber);
+      }
+    }
+  });
+
+  clearAllBtn.addEventListener("click", () => {
+    if (!confirm("Are you sure you want to clear all bookings?")) return;
+    bookings = {};
+    seatsTaken = {};
+    for (let i = 1; i <= 28; i++) {
+      bookings[i] = {};
+      seatsTaken[i] = 0;
+    }
+    saveData();
+    refreshTables();
+  });
+
+  // === AUTO ALLOCATION LOGIC ===
+
   function autoAllocateTables(squadSize) {
     const allocations = {};
     let remaining = squadSize;
@@ -383,7 +418,36 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    // Step 2: Try partially filled tables (any size)
+    // Step 2: For squads <= 30 — try to seat fully in a partially filled table
+    if (squadSize <= 30 && remaining > 0) {
+      // Find a partially filled table that can fit entire squad
+      const partialFullFitTable = Object.keys(seatCapacity)
+        .map(Number)
+        .find(table => {
+          const capacity = seatCapacity[table];
+          const taken = seatsTaken[table] || 0;
+          const freeSeats = capacity - taken;
+          return taken > 0 && freeSeats >= remaining;
+        });
+
+      if (partialFullFitTable) {
+        assignSeats(partialFullFitTable, remaining);
+      } else {
+        // No partially filled table fits fully - try an empty table that fits whole squad
+        const emptyFullFitTable = Object.keys(seatCapacity)
+          .map(Number)
+          .find(table => {
+            const capacity = seatCapacity[table];
+            const taken = seatsTaken[table] || 0;
+            return taken === 0 && capacity >= remaining;
+          });
+        if (emptyFullFitTable) {
+          assignSeats(emptyFullFitTable, remaining);
+        }
+      }
+    }
+
+    // Step 3: If still seats remain, try partially filled tables (any size)
     if (remaining > 0) {
       const partialTables = Object.keys(seatCapacity)
         .map(Number)
@@ -403,7 +467,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    // Step 3: Assign empty tables
+    // Step 4: Assign empty tables for any remaining seats
     if (remaining > 0) {
       const emptyTables = Object.keys(seatCapacity)
         .map(Number)
@@ -417,7 +481,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    // Step 4: Just in case, try partially filled tables again
+    // Step 5: Safety check - again try partially filled tables if needed
     if (remaining > 0) {
       const partialTables = Object.keys(seatCapacity)
         .map(Number)
@@ -444,110 +508,42 @@ document.addEventListener('DOMContentLoaded', () => {
     return allocations;
   }
 
-  autoBookBtn.addEventListener("click", () => {
-    const rawName = autoNameSelect.value.trim();
-    const squadSize = parseInt(autoPaxInput.value);
+  autoBookBtn.addEventListener('click', () => {
+    const name = autoNameSelect.value.trim();
+    const pax = Number(autoPaxInput.value);
 
-    if (!rawName) {
+    if (!name) {
       alert("Please select a name.");
       return;
     }
-    if (isNaN(squadSize) || squadSize <= 0) {
-      alert("Please enter a valid number of pax.");
+    if (isNaN(pax) || pax <= 0) {
+      alert("Please enter a valid number of people.");
       return;
     }
 
-    const name = sanitizeKey(rawName);
-    const allocation = autoAllocateTables(squadSize);
+    const allocation = autoAllocateTables(pax);
 
+    // No allocation means no seats available
     if (Object.keys(allocation).length === 0) {
-      alert("No available tables to allocate.");
+      alert("No seats available for this squad.");
       return;
     }
 
-    const totalAllocated = Object.values(allocation).reduce((a, b) => a + b, 0);
-    if (totalAllocated < squadSize) {
-      alert(`Only ${totalAllocated} seats could be allocated for ${rawName} (requested ${squadSize}).`);
-    }
-
+    // Apply allocation to bookings and seatsTaken
     for (const [tableStr, seats] of Object.entries(allocation)) {
       const table = Number(tableStr);
       if (!bookings[table]) bookings[table] = {};
-      bookings[table][name] = (bookings[table][name] || 0) + seats;
+      if (!bookings[table][name]) bookings[table][name] = 0;
+      bookings[table][name] += seats;
+
       seatsTaken[table] = (seatsTaken[table] || 0) + seats;
     }
 
     saveData();
     refreshTables();
 
-    alert(`Allocated seats for ${rawName}:\n` +
-      Object.entries(allocation).map(([t, s]) => `Table ${t}: ${s} seats`).join("\n"));
-
     autoPaxInput.value = "";
+    alert(`Allocated ${pax} seats for ${name} across table(s): ${Object.keys(allocation).join(", ")}`);
   });
-
-  // Manage Names modal logic
-  manageNamesBtn.addEventListener("click", () => {
-    manageNamesModal.style.display = "block";
-    refreshNamesList();
-  });
-
-  cancelNamesBtn.addEventListener("click", () => {
-    manageNamesModal.style.display = "none";
-  });
-
-  addNameBtn.addEventListener("click", () => {
-    const newName = newNameInput.value.trim();
-    if (newName && !presetNames.includes(newName)) {
-      presetNames.push(newName);
-      populateNameSelect();
-      populateAutoNameSelect();
-      refreshNamesList();
-      newNameInput.value = "";
-    }
-  });
-
-  saveNamesBtn.addEventListener("click", () => {
-    saveData();
-    manageNamesModal.style.display = "none";
-  });
-
-  function refreshNamesList() {
-    namesList.innerHTML = "";
-    presetNames.forEach((name, idx) => {
-      const li = document.createElement("li");
-      li.textContent = name;
-      const removeBtn = document.createElement("button");
-      removeBtn.textContent = "Remove";
-      removeBtn.style.marginLeft = "10px";
-      removeBtn.onclick = () => {
-        presetNames.splice(idx, 1);
-        populateNameSelect();
-        populateAutoNameSelect();
-        refreshNamesList();
-      };
-      li.appendChild(removeBtn);
-      namesList.appendChild(li);
-    });
-  }
-
-  clearAllBtn.addEventListener("click", () => {
-    if (confirm("Are you sure you want to clear all bookings and reset?")) {
-      bookings = {};
-      seatsTaken = {};
-      for (let i = 1; i <= 28; i++) {
-        bookings[i] = {};
-        seatsTaken[i] = 0;
-      }
-      saveData();
-      refreshTables();
-    }
-  });
-
-  function updateExitSelectOnBookingsChange() {
-    if (selectedTableNumber) {
-      populateExitNameSelect(selectedTableNumber);
-    }
-  }
 
 });
