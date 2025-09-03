@@ -5,31 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>HTA Mess Hall Table Allocation System</title>
   <link rel="stylesheet" href="style.css" />
-  
-  <!-- Firebase SDKs -->
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js"></script>
-
-  <!-- Firebase initialization -->
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getDatabase } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
-
-    const firebaseConfig = {
-      apiKey: "AIzaSyA5CsDh9NDb5qGcwiBQVg3fSEDaxlFiM74",
-      authDomain: "messhallbooking.firebaseapp.com",
-      databaseURL: "https://messhallbooking-default-rtdb.asia-southeast1.firebasedatabase.app",
-      projectId: "messhallbooking",
-      storageBucket: "messhallbooking.firebasestorage.app",
-      messagingSenderId: "948107559939",
-    };
-
-    // Initialize Firebase
-    const app = initializeApp(firebaseConfig);
-
-    // Initialize Realtime Database and export it globally
-    const database = getDatabase(app);
-    window.database = database; // make available globally for your script.js
   </script>
 </head>
 <body>
@@ -97,3 +72,4 @@
   <script type="module" src="script.js"></script>
 </body>
 </html>
+
