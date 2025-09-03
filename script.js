@@ -1,13 +1,24 @@
-console.log('DOM loaded');
+// Top-level imports and Firebase initialization
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getDatabase, ref, get, onValue, set } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyA5CsDh9NDb5qGcwiBQVg3fSEDaxlFiM74",
+  authDomain: "messhallbooking.firebaseapp.com",
+  databaseURL: "https://messhallbooking-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "messhallbooking",
+  storageBucket: "messhallbooking.firebasestorage.app",
+  messagingSenderId: "948107559939",
+};
+
+const app = initializeApp(firebaseConfig);
+const database = getDatabase(app);
 
 document.addEventListener('DOMContentLoaded', () => {
   console.log('Starting script');
 
+  const db = database; // Use the initialized database
 
-// Import required Firebase functions for Realtime Database
-import { ref, get, onValue, set } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
-
-document.addEventListener('DOMContentLoaded', () => {
   const leftSide = document.getElementById("leftSide");
   const rightSide = document.getElementById("rightSide");
 
@@ -74,7 +85,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Firebase Realtime Database references
-  const db = window.database; // from your firebase initialization in HTML
   const bookingsRef = ref(db, 'bookings');
   const seatsTakenRef = ref(db, 'seatsTaken');
   const presetNamesRef = ref(db, 'presetNames');
@@ -104,7 +114,6 @@ document.addEventListener('DOMContentLoaded', () => {
         "ICA INSP 05/25", "ICA INSP 06/25", "ICA INSP 07/25", "ICA SGT 03/25", "ICA SGT 04/25", "ICA SGT 05/25", "ICA SGT 06/25", "ICA Alpha", "ICA Bravo", "ICA Charlie"
       ];
 
-      // Initialize empty bookings and seatsTaken if missing
       for (let i = 1; i <= 28; i++) {
         if (!(i in seatsTaken)) seatsTaken[i] = 0;
         if (!(i in bookings)) bookings[i] = {};
@@ -114,16 +123,16 @@ document.addEventListener('DOMContentLoaded', () => {
       populateAutoNameSelect();
       refreshTables();
 
-      // Enable UI after loading data
       autoBookBtn.disabled = false;
       manageNamesBtn.disabled = false;
       clearAllBtn.disabled = false;
     }).catch(console.error);
 
-  // Listen for realtime updates from Firebase
+  // Listen for realtime updates
   onValue(bookingsRef, (snapshot) => {
     bookings = snapshot.val() || {};
     refreshTables();
+    updateExitSelectOnBookingsChange();
   });
 
   onValue(seatsTakenRef, (snapshot) => {
@@ -244,7 +253,6 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    // Update bookings and seatsTaken
     if (!bookings[selectedTableNumber]) {
       bookings[selectedTableNumber] = {};
     }
@@ -263,7 +271,6 @@ document.addEventListener('DOMContentLoaded', () => {
     refreshTables();
   });
 
-  // Manage Names Modal Logic
   manageNamesBtn.addEventListener("click", () => {
     manageNamesModal.style.display = "block";
     renderNamesList();
@@ -311,7 +318,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Exit Table Booking Logic
   exitButton.addEventListener("click", () => {
     const name = exitNameSelect.value.trim();
     if (!name) {
@@ -319,84 +325,69 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    let found = false;
-    for (const [table, names] of Object.entries(bookings)) {
-      if (names[name]) {
-        const seats = names[name];
-        delete bookings[table][name];
-        seatsTaken[table] -= seats;
-        if (seatsTaken[table] < 0) seatsTaken[table] = 0;
-        found = true;
-        break;
+    // Find all tables where this name is booked and remove the booking
+    let updated = false;
+    for (const [tableStr, bookingObj] of Object.entries(bookings)) {
+      const tableNum = parseInt(tableStr);
+      if (bookingObj[name]) {
+        seatsTaken[tableNum] -= bookingObj[name];
+        delete bookingObj[name];
+        updated = true;
+
+        if (seatsTaken[tableNum] < 0) seatsTaken[tableNum] = 0;
       }
     }
 
-    if (!found) {
-      alert(`${name} is not currently booked at any table.`);
-      return;
+    if (updated) {
+      saveData();
+      refreshTables();
+      updateExitSelectOnBookingsChange();
+      alert(`${name} has exited and all their bookings are removed.`);
+    } else {
+      alert(`${name} has no current bookings.`);
     }
-
-    saveData();
-    refreshTables();
-    alert(`${name} has been exited from their booking.`);
   });
 
-  // Populate exitNameSelect
-  function populateExitNameSelect() {
-    const uniqueNames = new Set();
-    for (const names of Object.values(bookings)) {
-      for (const name of Object.keys(names)) {
-        uniqueNames.add(name);
+  function updateExitSelectOnBookingsChange() {
+    const currentBookedNames = new Set();
+
+    for (const bookingObj of Object.values(bookings)) {
+      for (const name of Object.keys(bookingObj)) {
+        currentBookedNames.add(name);
       }
     }
+
+    const currentValue = exitNameSelect.value;
 
     exitNameSelect.innerHTML = "";
-    if (uniqueNames.size === 0) {
-      const option = document.createElement('option');
-      option.textContent = 'No bookings found';
-      option.value = '';
+    currentBookedNames.forEach(name => {
+      const option = document.createElement("option");
+      option.value = name;
+      option.textContent = name;
       exitNameSelect.appendChild(option);
-    } else {
-      uniqueNames.forEach(name => {
-        const option = document.createElement('option');
-        option.value = name;
-        option.textContent = name;
-        exitNameSelect.appendChild(option);
-      });
+    });
+
+    // Restore previous selection if still available
+    if (currentValue && currentBookedNames.has(currentValue)) {
+      exitNameSelect.value = currentValue;
     }
   }
 
-  // Update exitNameSelect whenever bookings change
-  function updateExitSelectOnBookingsChange() {
-    populateExitNameSelect();
-  }
-
-  // Call once initially after data load
-  updateExitSelectOnBookingsChange();
-
-  // Listen to bookings change to update exit list
-  onValue(bookingsRef, (snapshot) => {
-    bookings = snapshot.val() || {};
-    refreshTables();
-    updateExitSelectOnBookingsChange();
-  });
-
-  // Clear All Bookings Logic
   clearAllBtn.addEventListener("click", () => {
-    if (confirm("Are you sure you want to clear all bookings?")) {
-      bookings = {};
-      seatsTaken = {};
+    if (confirm("Are you sure you want to clear all bookings and seat counts?")) {
       for (let i = 1; i <= 28; i++) {
+        bookings[i] = {};
         seatsTaken[i] = 0;
       }
       saveData();
       refreshTables();
       updateExitSelectOnBookingsChange();
+      alert("All bookings cleared.");
     }
   });
 
-  // Auto Book Logic
-  autoBookBtn.addEventListener("click", () => {
+  // --- Auto Allocate Table(s) Algorithm ---
+  autoBookBtn.addEventListener('click', () => {
     const name = autoNameSelect.value.trim();
     const pax = parseInt(autoPaxInput.value);
 
@@ -404,67 +395,68 @@ document.addEventListener('DOMContentLoaded', () => {
       alert("Please select a name.");
       return;
     }
+
     if (!pax || pax < 1) {
       alert("Please enter a valid number of pax.");
       return;
     }
 
-    // Try to allocate tables automatically
-    // Strategy: find tables with available seats, fill in order until pax is satisfied
-
-    let remainingPax = pax;
-    let allocation = [];
-
-    // Tables sorted by available seats descending
-    const tablesByAvailability = Object.keys(seatCapacity).map(t => {
-      const tNum = parseInt(t);
-      const capacity = seatCapacity[tNum];
-      const taken = seatsTaken[tNum] || 0;
-      return {
-        table: tNum,
-        available: capacity - taken
-      };
-    }).filter(t => t.available > 0)
-      .sort((a, b) => b.available - a.available);
-
-    for (const t of tablesByAvailability) {
-      if (remainingPax <= 0) break;
-      const seatsToBook = Math.min(remainingPax, t.available);
-      allocation.push({ table: t.table, seats: seatsToBook });
-      remainingPax -= seatsToBook;
+    // Clear previous bookings for this name first
+    let updated = false;
+    for (const [tableStr, bookingObj] of Object.entries(bookings)) {
+      const tableNum = parseInt(tableStr);
+      if (bookingObj[name]) {
+        seatsTaken[tableNum] -= bookingObj[name];
+        delete bookingObj[name];
+        if (seatsTaken[tableNum] < 0) seatsTaken[tableNum] = 0;
+        updated = true;
+      }
     }
 
-    if (remainingPax > 0) {
-      alert(`Not enough seats available to accommodate ${pax} pax.`);
+    if (updated) {
+      // Save intermediate state to prevent overbooking in allocation
+      saveData();
+    }
+
+    // Start allocating
+    let remaining = pax;
+    // Sort tables by available seats descending
+    const tablesByAvailableSeats = Object.entries(seatsTaken).map(([tableStr, taken]) => {
+      const tableNum = parseInt(tableStr);
+      const capacity = seatCapacity[tableNum];
+      const available = capacity - taken;
+      return { tableNum, available };
+    }).filter(t => t.available > 0).sort((a, b) => b.available - a.available);
+
+    if (tablesByAvailableSeats.length === 0) {
+      alert("No available seats.");
       return;
     }
 
-    // Apply allocation to bookings and seatsTaken
-    for (const { table, seats } of allocation) {
-      if (!bookings[table]) bookings[table] = {};
-      if (bookings[table][name]) {
-        bookings[table][name] += seats;
+    // Allocate pax to tables greedily
+    for (const { tableNum, available } of tablesByAvailableSeats) {
+      if (remaining <= 0) break;
+      const toBook = Math.min(remaining, available);
+
+      if (!bookings[tableNum]) bookings[tableNum] = {};
+
+      if (bookings[tableNum][name]) {
+        bookings[tableNum][name] += toBook;
       } else {
-        bookings[table][name] = seats;
+        bookings[tableNum][name] = toBook;
       }
-      seatsTaken[table] = (seatsTaken[table] || 0) + seats;
+
+      seatsTaken[tableNum] += toBook;
+      remaining -= toBook;
+    }
+
+    if (remaining > 0) {
+      alert("Not enough seats available to fulfill the entire pax.");
     }
 
     saveData();
     refreshTables();
-    alert(`Successfully allocated ${pax} seats for ${name}.`);
-    autoPaxInput.value = "";
-  });
-
-  // Close modals when clicking outside modal content
-  window.addEventListener("click", (e) => {
-    if (e.target === bookingModal) {
-      bookingModal.style.display = "none";
-    }
-    if (e.target === manageNamesModal) {
-      manageNamesModal.style.display = "none";
-    }
+    updateExitSelectOnBookingsChange();
+    alert(`Auto allocation complete for ${pax} pax under "${name}".`);
   });
 });
-
-
