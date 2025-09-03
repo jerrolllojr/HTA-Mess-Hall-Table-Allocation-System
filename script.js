@@ -1,3 +1,5 @@
+console.log('script.js loaded');
+
 document.addEventListener('DOMContentLoaded', () => {
   const leftSide = document.getElementById("leftSide");
   const rightSide = document.getElementById("rightSide");
@@ -419,3 +421,4 @@ document.addEventListener('DOMContentLoaded', () => {
     refreshTables();
   });
 });
+
