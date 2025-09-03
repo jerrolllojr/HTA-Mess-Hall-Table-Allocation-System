@@ -388,80 +388,148 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // --- Auto Allocate Table(s) Algorithm ---
-  autoBookBtn.addEventListener('click', () => {
-    const rawName = autoNameSelect.value.trim();
-    const name = sanitizeKey(rawName);
-    const pax = parseInt(autoPaxInput.value);
+  // --- AUTO ALLOCATION FUNCTION ---
+// PRIORITY: Allocate squads >=31 pax to 36-seat tables (16, 17, 18) first, then others
+function allocateTables(name, pax) {
+  if (!name || pax < 1) return { success: false, allocation: {} };
 
-    if (!name) {
-      alert("Please select a name.");
-      return;
-    }
+  let remainingPax = pax;
+  const allocation = {};
 
-    if (!pax || pax < 1) {
-      alert("Please enter a valid number of pax.");
-      return;
-    }
+  // Helper: allocate seats on given tables
+  // If requireEmpty === true, allocate only on empty tables
+  // If requireEmpty === false, allocate on partially filled or empty tables
+  function allocateOnTables(tables, requireEmpty = false) {
+    for (const tableNum of tables) {
+      if (remainingPax <= 0) break;
 
-    // Clear previous bookings for this name first
-    let updated = false;
-    for (const [tableStr, bookingObj] of Object.entries(bookings)) {
-      const tableNum = parseInt(tableStr);
-      if (bookingObj[name]) {
-        seatsTaken[tableNum] -= bookingObj[name];
-        delete bookingObj[name];
-        if (seatsTaken[tableNum] < 0) seatsTaken[tableNum] = 0;
-        updated = true;
-      }
-    }
-
-    if (updated) {
-      // Save intermediate state to prevent overbooking in allocation
-      saveData();
-    }
-
-    // Start allocating
-    let remaining = pax;
-    // Sort tables by available seats descending
-    const tablesByAvailableSeats = Object.entries(seatsTaken).map(([tableStr, taken]) => {
-      const tableNum = parseInt(tableStr);
       const capacity = seatCapacity[tableNum];
+      const taken = seatsTaken[tableNum];
       const available = capacity - taken;
-      return { tableNum, available };
-    }).filter(t => t.available > 0).sort((a, b) => b.available - a.available);
 
-    if (tablesByAvailableSeats.length === 0) {
-      alert("No available seats.");
-      return;
-    }
+      if (available <= 0) continue;
+      if (requireEmpty && taken > 0) continue;
 
-    // Allocate pax to tables greedily
-    for (const { tableNum, available } of tablesByAvailableSeats) {
-      if (remaining <= 0) break;
-      const toBook = Math.min(remaining, available);
+      const allocateSeats = Math.min(remainingPax, available);
 
-      if (!bookings[tableNum]) bookings[tableNum] = {};
+      if (allocateSeats > 0) {
+        if (!bookings[tableNum]) bookings[tableNum] = {};
+        bookings[tableNum][name] = (bookings[tableNum][name] || 0) + allocateSeats;
+        seatsTaken[tableNum] = taken + allocateSeats;
 
-      if (bookings[tableNum][name]) {
-        bookings[tableNum][name] += toBook;
-      } else {
-        bookings[tableNum][name] = toBook;
+        allocation[tableNum] = (allocation[tableNum] || 0) + allocateSeats;
+        remainingPax -= allocateSeats;
       }
-
-      seatsTaken[tableNum] += toBook;
-      remaining -= toBook;
     }
+  }
 
-    if (remaining > 0) {
-      alert("Not enough seats available to fulfill the entire pax.");
+  // Decide table groups: prioritize 36-seat tables if pax >= 31
+  let priorityTables = [];
+  let otherTables = [];
+  for (let i = 1; i <= 28; i++) {
+    if (pax >= 31 && [16, 17, 18].includes(i)) {
+      priorityTables.push(i);
+    } else {
+      otherTables.push(i);
     }
+  }
 
-    saveData();
-    refreshTables();
-    updateExitSelectOnBookingsChange();
-    alert(`Auto allocation complete for ${pax} pax under "${rawName}".`);
-  });
+  // --- NEW LOGIC ---
+  // Try to allocate entire squad in one partially filled table first (priority tables first)
+  function findSingleTableForEntireSquad(tables) {
+    for (const tableNum of tables) {
+      const capacity = seatCapacity[tableNum];
+      const taken = seatsTaken[tableNum];
+      const available = capacity - taken;
+
+      if (available >= remainingPax && taken > 0) {
+        if (!bookings[tableNum]) bookings[tableNum] = {};
+        bookings[tableNum][name] = (bookings[tableNum][name] || 0) + remainingPax;
+        seatsTaken[tableNum] = taken + remainingPax;
+
+        allocation[tableNum] = (allocation[tableNum] || 0) + remainingPax;
+        remainingPax = 0;
+        return true;
+      }
+    }
+    return false;
+  }
+
+  if (!findSingleTableForEntireSquad(priorityTables)) {
+    findSingleTableForEntireSquad(otherTables);
+  }
+
+  if (remainingPax > 0) allocateOnTables(priorityTables, true);
+  if (remainingPax > 0) allocateOnTables(otherTables, true);
+  if (remainingPax > 0) allocateOnTables(priorityTables, false);
+  if (remainingPax > 0) allocateOnTables(otherTables, false);
+
+  saveData();
+  refreshTables();
+
+  if (remainingPax > 0) {
+    alert(`Not enough seats available for all ${pax} pax. Only allocated ${pax - remainingPax} seats.`);
+  }
+
+  return { success: remainingPax === 0, allocation };
+}
+
+// --- Auto Book Button listener using allocateTables function ---
+autoBookBtn.addEventListener("click", () => {
+  const rawName = autoNameSelect.value.trim();
+  const name = sanitizeKey(rawName);
+  const pax = parseInt(autoPaxInput.value);
+
+  if (!name) {
+    alert("Please select a name.");
+    return;
+  }
+  if (!pax || pax < 1) {
+    alert("Please enter a valid number of pax.");
+    return;
+  }
+
+  // Clear previous bookings for this name first
+  let updated = false;
+  for (const [tableStr, bookingObj] of Object.entries(bookings)) {
+    const tableNum = parseInt(tableStr);
+    if (bookingObj[name]) {
+      seatsTaken[tableNum] -= bookingObj[name];
+      delete bookingObj[name];
+      if (seatsTaken[tableNum] < 0) seatsTaken[tableNum] = 0;
+      updated = true;
+    }
+  }
+
+  if (updated) {
+    saveData(); // Save after clearing previous bookings to avoid overbooking
+  }
+
+  const result = allocateTables(name, pax);
+
+  // Build allocation message
+  let message = "";
+  if (Object.keys(result.allocation).length > 0) {
+    message += `Allocated seats for ${rawName}:\n`;
+    for (const [table, seats] of Object.entries(result.allocation)) {
+      message += `Table ${table}: ${seats} seat(s)\n`;
+    }
+  }
+
+  if (result.success) {
+    alert(message || `Successfully allocated all ${pax} seats to ${rawName}.`);
+  } else {
+    const allocatedSeats = Object.values(result.allocation).reduce((a, b) => a + b, 0);
+    alert(
+      message +
+      `\nNot enough seats available for all ${pax} pax. Allocated ${allocatedSeats} seat(s).`
+    );
+  }
+
+  autoPaxInput.value = "";
+  refreshTables();
+  updateExitSelectOnBookingsChange();
+});
 
   // Utility function to sanitize Firebase keys by replacing invalid characters
   function sanitizeKey(key) {
@@ -470,4 +538,5 @@ document.addEventListener('DOMContentLoaded', () => {
     return key.replace(/[.#$/\[\]]/g, "_");
   }
 });
+
 
