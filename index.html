@@ -31,10 +31,10 @@
       <h2>Table <span id="modalTableNumber"></span> Booking</h2>
       <form id="bookingForm">
         <label for="nameSelect">Select Name:</label><br />
-        <select id="nameSelect"></select><br /><br />
+        <select id="nameSelect" name="nameSelect"></select><br /><br />
 
         <label for="peopleInput">Number of People:</label><br />
-        <input type="number" id="peopleInput" min="1" /><br /><br />
+        <input type="number" id="peopleInput" name="peopleInput" min="1" /><br /><br />
 
         <button type="submit" id="confirmBookingBtn">Confirm</button>
         <button type="button" id="cancelButton">Cancel</button>
@@ -45,7 +45,7 @@
 
         <div id="exitSection">
           <label for="exitNameSelect">Select Name to Exit:</label><br />
-          <select id="exitNameSelect"></select>
+          <select id="exitNameSelect" name="exitNameSelect"></select>
           <button type="button" id="exitButton" style="margin-left:10px;">Exit Table</button>
         </div>
       </form>
@@ -57,7 +57,7 @@
     <div class="modal-content">
       <h2>Manage Names</h2>
       <ul id="namesList"></ul>
-      <input type="text" id="newNameInput" placeholder="Enter new name" />
+      <input type="text" id="newNameInput" name="newNameInput" placeholder="Enter new name" />
       <button id="addNameBtn">Add</button>
       <br /><br />
       <button id="saveNamesBtn">Save</button>
@@ -67,5 +67,3 @@
   <script type="module" src="script.js"></script>
 </body>
 </html>
-
-
