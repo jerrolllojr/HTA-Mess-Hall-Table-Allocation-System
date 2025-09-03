@@ -25,40 +25,39 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let selectedTableNumber = null;
 
-  // --- AUTO BOOK UI Elements ---
-  // We'll create them dynamically and insert above the hall layout
-  const autoBookingContainer = document.createElement('div');
-  autoBookingContainer.style.margin = "20px 0";
-  autoBookingContainer.style.textAlign = "center";
+// --- AUTO BOOK UI Elements ---
+// We'll create them dynamically and insert above the hall layout
+const autoBookingContainer = document.createElement('div');
+autoBookingContainer.style.margin = "20px 0";
+autoBookingContainer.style.textAlign = "center";
 
-  const autoNameSelect = document.createElement('select');
+const autoNameSelect = document.createElement('select');
 autoNameSelect.id = "autoNameSelect";
 autoNameSelect.style.marginRight = "10px";
-autoNameSelect.style.fontSize = "18px";
-autoNameSelect.style.padding = "8px 12px";
-autoNameSelect.style.minWidth = "180px";
+autoNameSelect.style.fontSize = "18px";      // Bigger font size
+autoNameSelect.style.padding = "8px 12px";   // Padding for bigger box
+autoNameSelect.style.minWidth = "180px";     // Wider dropdown
 
 const autoPaxInput = document.createElement('input');
 autoPaxInput.type = "number";
 autoPaxInput.min = "1";
 autoPaxInput.placeholder = "Number of Pax";
-autoPaxInput.style.width = "150px";
+autoPaxInput.style.width = "150px";          // Wider input box
 autoPaxInput.style.marginRight = "10px";
-autoPaxInput.style.fontSize = "18px";
-autoPaxInput.style.padding = "8px 12px";
+autoPaxInput.style.fontSize = "18px";        // Bigger font size
+autoPaxInput.style.padding = "8px 12px";     // Padding for bigger input
 
 const autoBookBtn = document.createElement('button');
 autoBookBtn.textContent = "Auto Allocate Table(s)";
-autoBookBtn.style.padding = "12px 20px";
-autoBookBtn.style.fontSize = "18px";
-autoBookBtn.style.cursor = "pointer";
+autoBookBtn.style.padding = "12px 20px";     // Bigger button padding
+autoBookBtn.style.fontSize = "18px";         // Bigger font size
+autoBookBtn.style.cursor = "pointer";        // Pointer cursor on hover
 
+autoBookingContainer.appendChild(autoNameSelect);
+autoBookingContainer.appendChild(autoPaxInput);
+autoBookingContainer.appendChild(autoBookBtn);
 
-  autoBookingContainer.appendChild(autoNameSelect);
-  autoBookingContainer.appendChild(autoPaxInput);
-  autoBookingContainer.appendChild(autoBookBtn);
-
-  document.body.insertBefore(autoBookingContainer, document.querySelector('.hall-layout'));
+document.body.insertBefore(autoBookingContainer, document.querySelector('.hall-layout'));
 
   // Load data from localStorage or initialize defaults
   let presetNames = JSON.parse(localStorage.getItem('presetNames')) || [
@@ -488,3 +487,4 @@ function allocateTables(name, pax) {
   populateAutoNameSelect();
   refreshTables();
 });
+
