@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>HTA Mess Hall Table Allocation System</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <h1 style="text-align: center;">HTA Mess Hall Table Allocation System</h1>
+
+  <div class="hall-layout">
+    <!-- Left side tables -->
+    <div class="table-section" id="leftSide"></div>
+
+    <!-- Grey vertical bar -->
+    <div class="hall-center"></div>
+
+    <!-- Right side tables -->
+    <div class="table-section" id="rightSide"></div>
+  </div>
+
+  <div class="bottom-buttons">
+    <button id="manageNamesBtn">Manage Names</button>
+    <button id="clearAllBtn">Clear All Bookings</button>
+  </div>
+
+  <!-- Booking Modal -->
+  <div id="bookingModal" class="modal hidden">
+    <div class="modal-content">
+      <h2>Table <span id="modalTableNumber"></span> Booking</h2>
+      <form id="bookingForm">
+        <label for="nameSelect">Select Name:</label><br />
+        <select id="nameSelect"></select><br /><br />
+
+        <label for="peopleInput">Number of People:</label><br />
+        <input type="number" id="peopleInput" min="1" /><br /><br />
+
+        <button type="submit" id="confirmBookingBtn">Confirm</button>
+        <button type="button" id="cancelButton">Cancel</button>
+
+        <div id="errorMessage" style="color: red; margin-top: 10px;"></div>
+
+        <hr style="margin:20px 0;" />
+
+        <div id="exitSection">
+          <label for="exitNameSelect">Select Name to Exit:</label><br />
+          <select id="exitNameSelect"></select>
+          <button type="button" id="exitButton" style="margin-left:10px;">Exit Table</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Manage Names Modal -->
+  <div id="manageNamesModal" class="modal hidden">
+    <div class="modal-content">
+      <h2>Manage Names</h2>
+      <ul id="namesList"></ul>
+      <input type="text" id="newNameInput" placeholder="Enter new name" />
+      <button id="addNameBtn">Add</button>
+      <br /><br />
+      <button id="saveNamesBtn">Save</button>
+      <button id="cancelNamesBtn">Cancel</button>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
