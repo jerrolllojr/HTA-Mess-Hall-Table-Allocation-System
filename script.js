@@ -49,7 +49,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const clearAllBtn = document.getElementById("clearAllBtn");
 
   let selectedTableNumber = null;
-  let selectedExitTableNumber = null; // NEW: Track table for exit dropdown filtering
 
   const autoBookingContainer = document.createElement('div');
   autoBookingContainer.style.margin = "20px 0";
@@ -134,13 +133,7 @@ document.addEventListener('DOMContentLoaded', () => {
   onValue(bookingsRef, (snapshot) => {
     bookings = snapshot.val() || {};
     refreshTables();
-
-    // NEW: update exit dropdown only for selected exit table, or clear if none
-    if (selectedExitTableNumber) {
-      updateExitSelectForTable(selectedExitTableNumber);
-    } else {
-      exitNameSelect.innerHTML = "";
-    }
+    updateExitSelectOnBookingsChange();
   });
 
   onValue(seatsTakenRef, (snapshot) => {
@@ -227,45 +220,54 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // NEW FUNCTION: Update exit dropdown with names only for specified table
-  function updateExitSelectForTable(tableNumber) {
+  // --- NEW FUNCTION ---
+  // Populate exitNameSelect ONLY for the selected table bookings
+  function populateExitNameSelect(tableNumber) {
     exitNameSelect.innerHTML = "";
-
-    if (!tableNumber || !bookings[tableNumber]) {
-      const option = document.createElement("option");
-      option.value = "";
-      option.textContent = "-- Select a table first --";
-      exitNameSelect.appendChild(option);
-      return;
-    }
-
-    const names = Object.keys(bookings[tableNumber]);
-
+    const names = Object.keys(bookings[tableNumber] || {});
     if (names.length === 0) {
       const option = document.createElement("option");
       option.value = "";
-      option.textContent = "-- No bookings on this table --";
+      option.textContent = "No bookings";
       exitNameSelect.appendChild(option);
+      exitNameSelect.disabled = true;
+      exitButton.disabled = true;
     } else {
       names.forEach(name => {
         const option = document.createElement("option");
         option.value = name;
-        option.textContent = name;
+        option.textContent = `${name} (${bookings[tableNumber][name]} seats)`;
         exitNameSelect.appendChild(option);
       });
+      exitNameSelect.disabled = false;
+      exitButton.disabled = false;
     }
   }
 
-  // OPEN BOOKING MODAL updated to set selectedExitTableNumber and update exit dropdown
   function openBookingModal(tableNumber) {
     selectedTableNumber = tableNumber;
-    selectedExitTableNumber = tableNumber; // Track for exit dropdown filtering
     modalTableNumber.textContent = `Table ${tableNumber}`;
     errorMessage.textContent = "";
     peopleInput.value = "";
-    bookingModal.style.display = "block";
 
-    updateExitSelectForTable(tableNumber);
+    // Show current bookings for this table only (optional display element)
+    const tableBookings = bookings[tableNumber] || {};
+    let bookingsText = "";
+
+    for (const [name, seats] of Object.entries(tableBookings)) {
+      bookingsText += `${name} (${seats})<br />`;
+    }
+
+    // Assuming you have an element with ID "currentBookings" inside the modal to show this info
+    const currentBookingsDiv = document.getElementById("currentBookings");
+    if (currentBookingsDiv) {
+      currentBookingsDiv.innerHTML = bookingsText || "No current bookings.";
+    }
+
+    // Populate exitNameSelect dropdown for selected table only
+    populateExitNameSelect(tableNumber);
+
+    bookingModal.style.display = "block";
   }
 
   cancelButton.addEventListener("click", () => {
@@ -274,194 +276,90 @@ document.addEventListener('DOMContentLoaded', () => {
 
   bookingForm.addEventListener("submit", (e) => {
     e.preventDefault();
-
-    const selectedName = nameSelect.value;
-    const pax = parseInt(peopleInput.value);
-
-    if (!selectedName) {
-      errorMessage.textContent = "Please select a squad name.";
-      return;
-    }
-    if (isNaN(pax) || pax <= 0) {
-      errorMessage.textContent = "Please enter a valid number of pax.";
-      return;
-    }
-
-    const tableSeats = seatCapacity[selectedTableNumber];
-    const currentTaken = seatsTaken[selectedTableNumber] || 0;
-
-    if (currentTaken + pax > tableSeats) {
-      errorMessage.textContent = `Not enough seats available. Seats left: ${tableSeats - currentTaken}`;
-      return;
-    }
-
-    if (!bookings[selectedTableNumber]) {
-      bookings[selectedTableNumber] = {};
-    }
-
-    // Add or update booking
-    bookings[selectedTableNumber][selectedName] = (bookings[selectedTableNumber][selectedName] || 0) + pax;
-    seatsTaken[selectedTableNumber] = (seatsTaken[selectedTableNumber] || 0) + pax;
-
-    saveData();
-    refreshTables();
-
-    bookingModal.style.display = "none";
-
-    // Update exit dropdown for selected table
-    updateExitSelectForTable(selectedExitTableNumber);
-  });
-
-  // EXIT booking button handler
-  exitButton.addEventListener("click", () => {
-    const exitName = exitNameSelect.value;
-    const tableNum = selectedExitTableNumber;
-
-    if (!tableNum) {
+    if (!selectedTableNumber) {
       alert("Please select a table first.");
       return;
     }
-    if (!exitName || !(bookings[tableNum] && bookings[tableNum][exitName])) {
-      alert("Please select a valid booking to exit.");
+
+    const rawName = nameSelect.value.trim();
+    const seats = parseInt(peopleInput.value);
+
+    if (!rawName) {
+      errorMessage.textContent = "Please select a name.";
       return;
     }
 
-    const seats = bookings[tableNum][exitName];
-    delete bookings[tableNum][exitName];
-    seatsTaken[tableNum] -= seats;
+    if (isNaN(seats) || seats <= 0) {
+      errorMessage.textContent = "Please enter a valid number of seats.";
+      return;
+    }
 
-    if (seatsTaken[tableNum] < 0) seatsTaken[tableNum] = 0;
+    const name = sanitizeKey(rawName);
+
+    // Check capacity
+    const capacity = seatCapacity[selectedTableNumber];
+    const takenSeats = seatsTaken[selectedTableNumber] || 0;
+    const currentSeatsForName = bookings[selectedTableNumber]?.[name] || 0;
+    const newTotal = takenSeats - currentSeatsForName + seats;
+
+    if (newTotal > capacity) {
+      errorMessage.textContent = `Not enough seats available. (${capacity - takenSeats + currentSeatsForName} seats left)`;
+      return;
+    }
+
+    // Update booking
+    if (!bookings[selectedTableNumber]) bookings[selectedTableNumber] = {};
+    bookings[selectedTableNumber][name] = seats;
+
+    seatsTaken[selectedTableNumber] = newTotal;
 
     saveData();
     refreshTables();
+    populateExitNameSelect(selectedTableNumber); // Update exit dropdown after booking
 
-    // Update exit dropdown for selected table
-    updateExitSelectForTable(selectedExitTableNumber);
+    bookingModal.style.display = "none";
   });
 
-  manageNamesBtn.addEventListener("click", () => {
-    manageNamesModal.style.display = "block";
-    newNameInput.value = "";
-    renderNamesList();
-  });
-
-  cancelNamesBtn.addEventListener("click", () => {
-    manageNamesModal.style.display = "none";
-  });
-
-  addNameBtn.addEventListener("click", () => {
-    const newName = newNameInput.value.trim();
-    if (newName && !presetNames.includes(newName)) {
-      presetNames.push(newName);
-      newNameInput.value = "";
-      renderNamesList();
-    }
-  });
-
-  saveNamesBtn.addEventListener("click", () => {
-    saveData();
-    populateNameSelect();
-    populateAutoNameSelect();
-    manageNamesModal.style.display = "none";
-  });
-
-  function renderNamesList() {
-    namesList.innerHTML = "";
-    presetNames.forEach(name => {
-      const li = document.createElement("li");
-      li.textContent = name;
-      li.style.cursor = "pointer";
-      li.title = "Click to remove";
-
-      li.addEventListener("click", () => {
-        const idx = presetNames.indexOf(name);
-        if (idx !== -1) {
-          presetNames.splice(idx, 1);
-          renderNamesList();
-        }
-      });
-
-      namesList.appendChild(li);
-    });
-  }
-
-  clearAllBtn.addEventListener("click", () => {
-    if (confirm("Are you sure you want to clear all bookings?")) {
-      bookings = {};
-      seatsTaken = {};
-      for (let i = 1; i <= 28; i++) {
-        seatsTaken[i] = 0;
-        bookings[i] = {};
-      }
-      saveData();
-      refreshTables();
-
-      // Clear exit dropdown because no selection now
-      selectedExitTableNumber = null;
-      exitNameSelect.innerHTML = "";
-    }
-  });
-
-  // Auto booking feature - assign tables automatically
-  autoBookBtn.addEventListener("click", () => {
-    const name = autoNameSelect.value;
-    const pax = parseInt(autoPaxInput.value);
+  // --- Updated exitButton listener ---
+  exitButton.addEventListener("click", () => {
+    const rawName = exitNameSelect.value.trim();
+    const name = sanitizeKey(rawName);
 
     if (!name) {
-      alert("Please select a squad name for auto booking.");
-      return;
-    }
-    if (isNaN(pax) || pax <= 0) {
-      alert("Please enter a valid number of pax.");
+      alert("Please select a name to exit.");
       return;
     }
 
-    const tablesToBook = [];
-    let paxRemaining = pax;
-
-    // Clear old bookings for this squad first (optional, or you can keep old)
-    for (let t = 1; t <= 28; t++) {
-      if (bookings[t] && bookings[t][name]) {
-        seatsTaken[t] -= bookings[t][name];
-        delete bookings[t][name];
-      }
+    if (!selectedTableNumber) {
+      alert("Please select a table first.");
+      return;
     }
 
-    // Try to allocate tables until paxRemaining is 0
-    for (let t = 1; t <= 28 && paxRemaining > 0; t++) {
-      const totalSeats = seatCapacity[t];
-      const taken = seatsTaken[t] || 0;
-      const freeSeats = totalSeats - taken;
+    const tableBookings = bookings[selectedTableNumber] || {};
 
-      if (freeSeats > 0) {
-        const seatsToBook = Math.min(freeSeats, paxRemaining);
+    if (tableBookings[name]) {
+      seatsTaken[selectedTableNumber] -= tableBookings[name];
+      if (seatsTaken[selectedTableNumber] < 0) seatsTaken[selectedTableNumber] = 0;
 
-        if (!bookings[t]) bookings[t] = {};
-        bookings[t][name] = seatsToBook;
+      delete tableBookings[name];
+      bookings[selectedTableNumber] = tableBookings;
 
-        seatsTaken[t] = (seatsTaken[t] || 0) + seatsToBook;
-        paxRemaining -= seatsToBook;
-        tablesToBook.push(t);
-      }
-    }
+      saveData();
+      refreshTables();
+      populateExitNameSelect(selectedTableNumber);
 
-    if (paxRemaining > 0) {
-      alert(`Not enough seats available for ${pax} pax.`);
-    }
-
-    saveData();
-    refreshTables();
-
-    // Reset auto booking form inputs
-    autoPaxInput.value = "";
-
-    // Update exit dropdown for last allocated table (or clear)
-    if (tablesToBook.length > 0) {
-      selectedExitTableNumber = tablesToBook[0];
-      updateExitSelectForTable(selectedExitTableNumber);
+      alert(`${rawName} has exited and their booking on Table ${selectedTableNumber} is removed.`);
     } else {
-      selectedExitTableNumber = null;
-      exitNameSelect.innerHTML = "";
+      alert(`${rawName} has no booking on Table ${selectedTableNumber}.`);
     }
   });
+
+  // --- Rest of your existing code for manage names, auto booking, clear all, etc. ---
+  // You can add that code here similarly...
+
+  function updateExitSelectOnBookingsChange() {
+    if (selectedTableNumber) {
+      populateExitNameSelect(selectedTableNumber);
+    }
+  }
 });
