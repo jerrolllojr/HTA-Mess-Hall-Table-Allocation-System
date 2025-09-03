@@ -50,6 +50,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let selectedTableNumber = null;
 
+  // Auto Booking UI Elements
   const autoBookingContainer = document.createElement('div');
   autoBookingContainer.style.margin = "20px 0";
   autoBookingContainer.style.textAlign = "center";
@@ -82,6 +83,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.body.insertBefore(autoBookingContainer, document.querySelector('.hall-layout'));
 
+  // Seat capacity for each table
   const seatCapacity = {};
   for (let i = 1; i <= 28; i++) {
     seatCapacity[i] = [16, 17, 18].includes(i) ? 36 : 30;
@@ -354,12 +356,198 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // --- Rest of your existing code for manage names, auto booking, clear all, etc. ---
-  // You can add that code here similarly...
+  // --- Auto allocation logic function ---
+  function autoAllocateTables(squadSize) {
+    const allocations = {};
+    let remaining = squadSize;
+
+    const largeTables = [16, 17, 18];
+
+    function assignSeats(table, seats) {
+      if (!allocations[table]) allocations[table] = 0;
+      allocations[table] += seats;
+      remaining -= seats;
+    }
+
+    // Step 1: For squads >= 31, prioritize large tables 16-18
+    if (squadSize >= 31) {
+      for (const table of largeTables) {
+        if (remaining <= 0) break;
+        const capacity = seatCapacity[table];
+        const taken = seatsTaken[table] || 0;
+        const freeSeats = capacity - taken;
+        if (freeSeats > 0) {
+          const seatsToAssign = Math.min(remaining, freeSeats);
+          assignSeats(table, seatsToAssign);
+        }
+      }
+    }
+
+    // Step 2: Try partially filled tables (any size)
+    if (remaining > 0) {
+      const partialTables = Object.keys(seatCapacity)
+        .map(Number)
+        .filter(t => {
+          const cap = seatCapacity[t];
+          const taken = seatsTaken[t] || 0;
+          return taken > 0 && taken < cap;
+        });
+
+      for (const table of partialTables) {
+        if (remaining <= 0) break;
+        const freeSeats = seatCapacity[table] - (seatsTaken[table] || 0);
+        if (freeSeats > 0) {
+          const seatsToAssign = Math.min(remaining, freeSeats);
+          assignSeats(table, seatsToAssign);
+        }
+      }
+    }
+
+    // Step 3: Assign empty tables
+    if (remaining > 0) {
+      const emptyTables = Object.keys(seatCapacity)
+        .map(Number)
+        .filter(t => (seatsTaken[t] || 0) === 0);
+
+      for (const table of emptyTables) {
+        if (remaining <= 0) break;
+        const capacity = seatCapacity[table];
+        const seatsToAssign = Math.min(remaining, capacity);
+        assignSeats(table, seatsToAssign);
+      }
+    }
+
+    // Step 4: Just in case, try partially filled tables again
+    if (remaining > 0) {
+      const partialTables = Object.keys(seatCapacity)
+        .map(Number)
+        .filter(t => {
+          const cap = seatCapacity[t];
+          const taken = seatsTaken[t] || 0;
+          return taken > 0 && taken < cap;
+        });
+
+      for (const table of partialTables) {
+        if (remaining <= 0) break;
+        const freeSeats = seatCapacity[table] - (seatsTaken[table] || 0) - (allocations[table] || 0);
+        if (freeSeats > 0) {
+          const seatsToAssign = Math.min(remaining, freeSeats);
+          assignSeats(table, seatsToAssign);
+        }
+      }
+    }
+
+    if (remaining > 0) {
+      console.warn(`Not enough seats available to allocate ${squadSize} pax.`);
+    }
+
+    return allocations;
+  }
+
+  autoBookBtn.addEventListener("click", () => {
+    const rawName = autoNameSelect.value.trim();
+    const squadSize = parseInt(autoPaxInput.value);
+
+    if (!rawName) {
+      alert("Please select a name.");
+      return;
+    }
+    if (isNaN(squadSize) || squadSize <= 0) {
+      alert("Please enter a valid number of pax.");
+      return;
+    }
+
+    const name = sanitizeKey(rawName);
+    const allocation = autoAllocateTables(squadSize);
+
+    if (Object.keys(allocation).length === 0) {
+      alert("No available tables to allocate.");
+      return;
+    }
+
+    const totalAllocated = Object.values(allocation).reduce((a, b) => a + b, 0);
+    if (totalAllocated < squadSize) {
+      alert(`Only ${totalAllocated} seats could be allocated for ${rawName} (requested ${squadSize}).`);
+    }
+
+    for (const [tableStr, seats] of Object.entries(allocation)) {
+      const table = Number(tableStr);
+      if (!bookings[table]) bookings[table] = {};
+      bookings[table][name] = (bookings[table][name] || 0) + seats;
+      seatsTaken[table] = (seatsTaken[table] || 0) + seats;
+    }
+
+    saveData();
+    refreshTables();
+
+    alert(`Allocated seats for ${rawName}:\n` +
+      Object.entries(allocation).map(([t, s]) => `Table ${t}: ${s} seats`).join("\n"));
+
+    autoPaxInput.value = "";
+  });
+
+  // Manage Names modal logic
+  manageNamesBtn.addEventListener("click", () => {
+    manageNamesModal.style.display = "block";
+    refreshNamesList();
+  });
+
+  cancelNamesBtn.addEventListener("click", () => {
+    manageNamesModal.style.display = "none";
+  });
+
+  addNameBtn.addEventListener("click", () => {
+    const newName = newNameInput.value.trim();
+    if (newName && !presetNames.includes(newName)) {
+      presetNames.push(newName);
+      populateNameSelect();
+      populateAutoNameSelect();
+      refreshNamesList();
+      newNameInput.value = "";
+    }
+  });
+
+  saveNamesBtn.addEventListener("click", () => {
+    saveData();
+    manageNamesModal.style.display = "none";
+  });
+
+  function refreshNamesList() {
+    namesList.innerHTML = "";
+    presetNames.forEach((name, idx) => {
+      const li = document.createElement("li");
+      li.textContent = name;
+      const removeBtn = document.createElement("button");
+      removeBtn.textContent = "Remove";
+      removeBtn.style.marginLeft = "10px";
+      removeBtn.onclick = () => {
+        presetNames.splice(idx, 1);
+        populateNameSelect();
+        populateAutoNameSelect();
+        refreshNamesList();
+      };
+      li.appendChild(removeBtn);
+      namesList.appendChild(li);
+    });
+  }
+
+  clearAllBtn.addEventListener("click", () => {
+    if (confirm("Are you sure you want to clear all bookings and reset?")) {
+      bookings = {};
+      seatsTaken = {};
+      for (let i = 1; i <= 28; i++) {
+        bookings[i] = {};
+        seatsTaken[i] = 0;
+      }
+      saveData();
+      refreshTables();
+    }
+  });
 
   function updateExitSelectOnBookingsChange() {
     if (selectedTableNumber) {
       populateExitNameSelect(selectedTableNumber);
     }
   }
+
 });
