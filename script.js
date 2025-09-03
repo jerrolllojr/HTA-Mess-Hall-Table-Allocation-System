@@ -9,17 +9,22 @@ const firebaseConfig = {
   authDomain: "messhallbooking.firebaseapp.com",
   databaseURL: "https://messhallbooking-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "messhallbooking",
-  storageBucket: "messhallbooking.firebasestorage.app",
+  storageBucket: "messhallbooking.appspot.com",
   messagingSenderId: "948107559939",
 };
 
 const app = initializeApp(firebaseConfig);
 const database = getDatabase(app);
 
+// 🧼 Helper: Sanitize key for Firebase
+function sanitizeKey(name) {
+  return name.replace(/[.#$[\]/]/g, "_");
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   console.log('Starting script');
 
-  const db = database; // Use the initialized database
+  const db = database;
 
   const leftSide = document.getElementById("leftSide");
   const rightSide = document.getElementById("rightSide");
@@ -47,7 +52,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let selectedTableNumber = null;
 
-  // --- AUTO BOOK UI Elements ---
   const autoBookingContainer = document.createElement('div');
   autoBookingContainer.style.margin = "20px 0";
   autoBookingContainer.style.textAlign = "center";
@@ -80,41 +84,38 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.body.insertBefore(autoBookingContainer, document.querySelector('.hall-layout'));
 
-  // Seat capacity by table
   const seatCapacity = {};
   for (let i = 1; i <= 28; i++) {
     seatCapacity[i] = [16, 17, 18].includes(i) ? 36 : 30;
   }
 
-  // Firebase Realtime Database references
   const bookingsRef = ref(db, 'bookings');
   const seatsTakenRef = ref(db, 'seatsTaken');
   const presetNamesRef = ref(db, 'presetNames');
 
-  // Initialize data containers
   let bookings = {};
   let seatsTaken = {};
   let presetNames = [];
 
-  // Initialize UI disabled until data loads
   autoBookBtn.disabled = true;
   manageNamesBtn.disabled = true;
   clearAllBtn.disabled = true;
 
-  // Fetch initial data from Firebase and set up listeners
   Promise.all([get(bookingsRef), get(seatsTakenRef), get(presetNamesRef)])
     .then(([bookingsSnap, seatsTakenSnap, presetNamesSnap]) => {
       bookings = bookingsSnap.exists() ? bookingsSnap.val() : {};
       seatsTaken = seatsTakenSnap.exists() ? seatsTakenSnap.val() : {};
-      presetNames = presetNamesSnap.exists() ? presetNamesSnap.val() : [
-        "CC4/25", "C5/24", "C1/25", "C2/25", "C3/25", "C4/25", "C5/25", "C6/25", "C7/25", "C8/25",
-        "R2/25", "R3/25", "R4/25", "R5/25", "R6/25", "R7/25", "R8/25", "R9/25", "R10/25",
-        "NS26", "NS27", "NS28", "NS29", "NS30", "NS31", "NS32", "NS33", "NS34", "NS35",
-        "NS36", "NS37", "NS38", "NS39", "NS40", "NS41", "NS42", "NS43", "NS44", "NS45",
-        "NS46", "NS47", "NS48", "NS49", "NS50",
-        "OCT/01", "OCT/02", "OCT/03", "OCT/04", "SPTI-02", "SPTI-03", "ICA INSP 03/25", "ICA INSP 04/25",
-        "ICA INSP 05/25", "ICA INSP 06/25", "ICA INSP 07/25", "ICA SGT 03/25", "ICA SGT 04/25", "ICA SGT 05/25", "ICA SGT 06/25", "ICA Alpha", "ICA Bravo", "ICA Charlie"
-      ];
+      presetNames = presetNamesSnap.exists() ? presetNamesSnap.val() : [];
+
+      // Sanitize keys from database
+      for (const table in bookings) {
+        const newTable = {};
+        for (const rawName in bookings[table]) {
+          const safeKey = sanitizeKey(rawName);
+          newTable[safeKey] = bookings[table][rawName];
+        }
+        bookings[table] = newTable;
+      }
 
       for (let i = 1; i <= 28; i++) {
         if (!(i in seatsTaken)) seatsTaken[i] = 0;
@@ -128,9 +129,8 @@ document.addEventListener('DOMContentLoaded', () => {
       autoBookBtn.disabled = false;
       manageNamesBtn.disabled = false;
       clearAllBtn.disabled = false;
-    }).catch(console.error);
-
-  // Listen for realtime updates
+    })
+    .catch(console.error);
   onValue(bookingsRef, (snapshot) => {
     bookings = snapshot.val() || {};
     refreshTables();
@@ -178,6 +178,7 @@ document.addEventListener('DOMContentLoaded', () => {
       for (const [name, seats] of Object.entries(tableBookings)) {
         namesText += `${name} (${seats})\n`;
       }
+
       table.innerHTML = `Table ${i}<br />${taken}/${totalSeats}` +
         (namesText ? `<br /><small style="white-space: pre-wrap;">${namesText.trim()}</small>` : "");
 
@@ -234,7 +235,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   bookingForm.addEventListener("submit", (e) => {
     e.preventDefault();
-    const name = nameSelect.value.trim();
+    const rawName = nameSelect.value.trim();
+    const name = sanitizeKey(rawName);
     const people = parseInt(peopleInput.value);
 
     if (!name) {
@@ -319,9 +321,9 @@ document.addEventListener('DOMContentLoaded', () => {
       namesList.appendChild(li);
     });
   }
-
   exitButton.addEventListener("click", () => {
-    const name = exitNameSelect.value.trim();
+    const rawName = exitNameSelect.value.trim();
+    const name = sanitizeKey(rawName);
     if (!name) {
       alert("Please select a name to exit.");
       return;
@@ -344,9 +346,9 @@ document.addEventListener('DOMContentLoaded', () => {
       saveData();
       refreshTables();
       updateExitSelectOnBookingsChange();
-      alert(`${name} has exited and all their bookings are removed.`);
+      alert(`${rawName} has exited and all their bookings are removed.`);
     } else {
-      alert(`${name} has no current bookings.`);
+      alert(`${rawName} has no current bookings.`);
     }
   });
 
@@ -390,7 +392,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- Auto Allocate Table(s) Algorithm ---
   autoBookBtn.addEventListener('click', () => {
-    const name = autoNameSelect.value.trim();
+    const rawName = autoNameSelect.value.trim();
+    const name = sanitizeKey(rawName);
     const pax = parseInt(autoPaxInput.value);
 
     if (!name) {
@@ -459,7 +462,13 @@ document.addEventListener('DOMContentLoaded', () => {
     saveData();
     refreshTables();
     updateExitSelectOnBookingsChange();
-    alert(`Auto allocation complete for ${pax} pax under "${name}".`);
+    alert(`Auto allocation complete for ${pax} pax under "${rawName}".`);
   });
-});
 
+  // Utility function to sanitize Firebase keys by replacing invalid characters
+  function sanitizeKey(key) {
+    if (!key) return "";
+    // Firebase keys cannot contain ".", "#", "$", "/", "[", or "]"
+    return key.replace(/[.#$/\[\]]/g, "_");
+  }
+});
