@@ -619,7 +619,7 @@ function cleanupExpiredBookings(maxAgeMs = 4 * 60 * 1000) { // 4 hours
 
   clearAllBtn.addEventListener("click", () => {
   const password = prompt("Enter admin password to clear all bookings:");
-  if (password !== "YourSecureAdminPassword") {
+  if (password !== "698928") {
     alert("Incorrect password.");
     return;
   }
@@ -658,5 +658,6 @@ function cleanupExpiredBookings(maxAgeMs = 4 * 60 * 1000) { // 4 hours
   // Run cleanup every 2 minutes
 setInterval(() => cleanupExpiredBookings(), 2 * 60 * 1000);
 });
+
 
 
