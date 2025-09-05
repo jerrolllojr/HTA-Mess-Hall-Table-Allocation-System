@@ -287,12 +287,15 @@ function openBookingModal(tableNumber) {
   modalTableNumber.textContent = `Table ${tableNumber}`;
   errorMessage.textContent = "";
   peopleInput.value = "";
- // Show current bookings for this table only (optional display element)
+
+// Show current bookings for this table only (optional display element)
 const tableBookings = bookings[tableNumber] || {};
 let bookingsText = "";
+
 for (const [name, seats] of Object.entries(tableBookings)) {
   bookingsText += `${name}: ${seats} seats\n`;
 }
+
 populateExitNameSelect(tableNumber);
 bookingModal.style.display = "block";
 
@@ -636,6 +639,7 @@ refreshTables();
 
 // Cleanup expired bookings every 2 minutes
 setInterval(() => cleanupExpiredBookings(), 2 * 60 * 1000);
+
 
 
 
