@@ -380,22 +380,19 @@ function cleanupExpiredBookings(maxAgeMs = 4 * 60 * 1000) { // 4 hours
   });
 
   // AUTO ALLOCATION LOGIC
- function autoAllocateTable(name, pax) {
+  function autoAllocateTable(name, pax) {
   const safeName = sanitizeKey(name);
 
-  // Check total seats used in all tables
-  const totalSeatsUsed = Object.values(seatsTaken)
-    .filter(x => typeof x === 'number' && !isNaN(x))
-    .reduce((a, b) => a + b, 0);
-
+  // Prevent booking if total seats exceed 858
+  const totalSeatsUsed = Object.values(seatsTaken).reduce((a, b) => a + b, 0);
   if (totalSeatsUsed + pax > 858) {
     alert("Not enough seats available in the hall for this group.");
     return [];
   }
 
-  // Clear previous booking of this name first
+  // Remove previous bookings
   for (const tableNum in bookings) {
-    if (bookings[tableNum] && bookings[tableNum][safeName]) {
+    if (bookings[tableNum][safeName]) {
       seatsTaken[tableNum] -= bookings[tableNum][safeName].seats;
       delete bookings[tableNum][safeName];
     }
@@ -404,19 +401,19 @@ function cleanupExpiredBookings(maxAgeMs = 4 * 60 * 1000) { // 4 hours
   const timestamp = Date.now();
   let assignedTables = [];
 
-  // Define tables and zones
-  const bigTables = [16, 17, 18]; // Priority for pax >= 31, capacity 36 each
-  const zoneA = [1,2,3,4,5,6,7,8,9,10,11,12,13,14];
-  const zoneB = [15,19,20,21,22,23,24,25,26,27,28];
+  const bigTables = [16, 17, 18]; // 36 seats
+  const tableZones = {
+    A: [1,2,3,4,5,6,7,8,9,10,11,12,13,14],
+    B: [15,19,20,21,22,23,24,25,26,27,28]
+  };
 
-  // Helper: get zone for a table
-  function getZone(tableNum) {
-    if (zoneA.includes(Number(tableNum))) return "A";
-    if (zoneB.includes(Number(tableNum)) || bigTables.includes(Number(tableNum))) return "B";
-    return null;
-  }
+  const getZone = (tableNum) => {
+    if (tableZones.A.includes(Number(tableNum))) return "A";
+    if (tableZones.B.includes(Number(tableNum))) return "B";
+    return "B"; // default zone for 16-18
+  };
 
-  // Helper: allocate seats to a table
+  // Utility to allocate to table
   function allocateToTable(tableNum, seatsToAssign) {
     if (!bookings[tableNum]) bookings[tableNum] = {};
     bookings[tableNum][safeName] = {
@@ -427,112 +424,99 @@ function cleanupExpiredBookings(maxAgeMs = 4 * 60 * 1000) { // 4 hours
     assignedTables.push(tableNum);
   }
 
-  // ==== ALLOCATION LOGIC ====
-
-  if (pax <= 29) {
-    // For small squads: assign exactly one table
-
-    // Combine zone A and B (except bigTables), priority partially filled tables with enough room
-    const smallTables = [...zoneA, ...zoneB];
-
-    // Try partially filled tables first
-    for (const t of smallTables) {
+  if (pax >= 31) {
+    // First try big tables 16-18 if any can take all
+    for (const t of bigTables) {
       const cap = seatCapacity[t];
       const taken = seatsTaken[t] || 0;
-      const available = cap - taken;
-
-      if (taken > 0 && available >= pax) {
+      if (cap - taken >= pax) {
         allocateToTable(t, pax);
-        saveData();
-        refreshTables();
+        saveData(); refreshTables();
         return assignedTables;
       }
     }
 
-    // Then try empty tables
-    for (const t of smallTables) {
-      const cap = seatCapacity[t];
-      const taken = seatsTaken[t] || 0;
+    // If not enough room in a single big table, look for empty tables in one zone
+    const zones = [tableZones.A, tableZones.B];
+    for (const zone of zones) {
+      let paxLeft = pax;
+      let tempTables = [];
+      for (const t of zone) {
+        const taken = seatsTaken[t] || 0;
+        const available = seatCapacity[t] - taken;
+        if (available === seatCapacity[t]) {
+          const toAssign = Math.min(paxLeft, available);
+          tempTables.push({ t, toAssign });
+          paxLeft -= toAssign;
+          if (paxLeft <= 0) break;
+        }
+      }
 
-      if (taken === 0 && cap >= pax) {
-        allocateToTable(t, pax);
-        saveData();
-        refreshTables();
+      if (paxLeft <= 0) {
+        // Apply allocation
+        for (const { t, toAssign } of tempTables) {
+          allocateToTable(t, toAssign);
+        }
+        saveData(); refreshTables();
         return assignedTables;
       }
     }
 
-    // No single table can fit group
-    alert("Cannot allocate: no single table available with enough seats for this group.");
+    // Fallback: split across empty + partially filled tables in same zone
+    for (const zone of zones) {
+      let paxLeft = pax;
+      let zoneTables = [];
+      for (const t of zone) {
+        const taken = seatsTaken[t] || 0;
+        const available = seatCapacity[t] - taken;
+        if (available > 0) {
+          const toAssign = Math.min(paxLeft, available);
+          zoneTables.push({ t, toAssign });
+          paxLeft -= toAssign;
+          if (paxLeft <= 0) break;
+        }
+      }
+
+      if (paxLeft <= 0) {
+        for (const { t, toAssign } of zoneTables) {
+          allocateToTable(t, toAssign);
+        }
+        saveData(); refreshTables();
+        return assignedTables;
+      }
+    }
+
+    // Couldn't allocate
     return [];
   }
 
-  // For pax >= 31
-  // Step 1: Try big tables 16-18 with enough space
-  for (const t of bigTables) {
-    const cap = seatCapacity[t];
+  // For pax <= 29
+  // Prefer partially filled table with enough room
+  const allTables = [...tableZones.A, ...tableZones.B, ...bigTables];
+  for (const t of allTables) {
     const taken = seatsTaken[t] || 0;
-    const available = cap - taken;
-
-    if (available >= pax) {
+    const cap = seatCapacity[t];
+    if (taken > 0 && cap - taken >= pax) {
       allocateToTable(t, pax);
-      saveData();
-      refreshTables();
-      return assignedTables;
+      saveData(); refreshTables();
+      return [t];
     }
   }
 
-  // Step 2: If big tables all occupied, start allocating from table 1 onwards (zone A), then zone B
-
-  const zonesInOrder = [zoneA, zoneB];
-
-  for (const zone of zonesInOrder) {
-    let paxLeft = pax;
-    let tablesToAssign = [];
-
-    // Allocate empty tables first in the zone
-    for (const t of zone) {
-      if (paxLeft <= 0) break;
-      const cap = seatCapacity[t];
-      const taken = seatsTaken[t] || 0;
-      const available = cap - taken;
-
-      if (taken === 0 && available > 0) {
-        const seatsToAssign = Math.min(available, paxLeft);
-        tablesToAssign.push({ table: t, seats: seatsToAssign });
-        paxLeft -= seatsToAssign;
-      }
-    }
-
-    // Then allocate partially filled tables in the zone
-    for (const t of zone) {
-      if (paxLeft <= 0) break;
-      const cap = seatCapacity[t];
-      const taken = seatsTaken[t] || 0;
-      const available = cap - taken;
-
-      if (taken > 0 && available > 0) {
-        const seatsToAssign = Math.min(available, paxLeft);
-        tablesToAssign.push({ table: t, seats: seatsToAssign });
-        paxLeft -= seatsToAssign;
-      }
-    }
-
-    // If all pax allocated in this zone
-    if (paxLeft <= 0) {
-      for (const alloc of tablesToAssign) {
-        allocateToTable(alloc.table, alloc.seats);
-      }
-      saveData();
-      refreshTables();
-      return assignedTables;
+  // Else try empty table
+  for (const t of allTables) {
+    const taken = seatsTaken[t] || 0;
+    const cap = seatCapacity[t];
+    if (taken === 0 && cap >= pax) {
+      allocateToTable(t, pax);
+      saveData(); refreshTables();
+      return [t];
     }
   }
 
-  // If reached here, no allocation found
-  alert("Cannot allocate seats: insufficient contiguous tables available for this large group.");
   return [];
 }
+
 
 
   autoBookBtn.addEventListener("click", () => {
@@ -650,6 +634,4 @@ function cleanupExpiredBookings(maxAgeMs = 4 * 60 * 1000) { // 4 hours
   // Run cleanup every 2 minutes
 setInterval(() => cleanupExpiredBookings(), 2 * 60 * 1000);
 });
-
-
 
