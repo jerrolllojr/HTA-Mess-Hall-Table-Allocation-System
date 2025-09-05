@@ -1,3 +1,5 @@
+console.log('JS loaded')
+
 // Top-level imports and Firebase initialization
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getDatabase, ref, get, onValue, set } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
@@ -551,3 +553,4 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initial refresh
   refreshTables();
 });
+
