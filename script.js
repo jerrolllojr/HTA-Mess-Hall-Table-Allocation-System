@@ -423,6 +423,17 @@ function cleanupExpiredBookings(maxAgeMs = 4 * 60 * 1000) { // 4 hours
     assignedTables.push(tableNum);
   }
 
+// Check for total pax
+
+const totalSeatsUsed = Object.values(seatsTaken)
+    .filter(x => typeof x === 'number' && !isNaN(x))
+    .reduce((a, b) => a + b, 0);
+
+  if (totalSeatsUsed + pax > 858) {
+    alert("Not enough seats available in the hall for this group.");
+    return [];
+  }
+   
   if (pax >= 31) {
     // Try 16–18 first
     for (const t of bigTables) {
@@ -639,4 +650,5 @@ function cleanupExpiredBookings(maxAgeMs = 4 * 60 * 1000) { // 4 hours
   // Run cleanup every 2 minutes
 setInterval(() => cleanupExpiredBookings(), 2 * 60 * 1000);
 });
+
 
