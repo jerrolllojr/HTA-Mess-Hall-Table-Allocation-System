@@ -24,6 +24,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const db = database;
 
+  // DOM Elements
   const leftSide = document.getElementById("leftSide");
   const rightSide = document.getElementById("rightSide");
 
@@ -44,13 +45,15 @@ document.addEventListener('DOMContentLoaded', () => {
   const cancelNamesBtn = document.getElementById("cancelNamesBtn");
 
   const exitNameSelect = document.getElementById("exitNameSelect");
-  // We'll replace the exit button below to clear old handlers
+
+  // Replace old exit button to clear old handlers
   const oldExitButton = document.getElementById("exitButton");
 
   const clearAllBtn = document.getElementById("clearAllBtn");
 
   let selectedTableNumber = null;
 
+  // Auto booking controls
   const autoBookingContainer = document.createElement('div');
   autoBookingContainer.style.margin = "20px 0";
   autoBookingContainer.style.textAlign = "center";
@@ -83,54 +86,63 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.body.insertBefore(autoBookingContainer, document.querySelector('.hall-layout'));
 
+  // Seat capacity by table (tables 16-18 have 36 seats, others 30)
   const seatCapacity = {};
   for (let i = 1; i <= 28; i++) {
     seatCapacity[i] = [16, 17, 18].includes(i) ? 36 : 30;
   }
 
+  // Firebase database references
   const bookingsRef = ref(db, 'bookings');
   const seatsTakenRef = ref(db, 'seatsTaken');
   const presetNamesRef = ref(db, 'presetNames');
 
+  // Data containers
   let bookings = {};
   let seatsTaken = {};
   let presetNames = [];
 
+  // Disable controls until data loads
   autoBookBtn.disabled = true;
   manageNamesBtn.disabled = true;
   clearAllBtn.disabled = true;
 
-  Promise.all([get(bookingsRef), get(seatsTakenRef), get(presetNamesRef)])
-    .then(([bookingsSnap, seatsTakenSnap, presetNamesSnap]) => {
-      bookings = bookingsSnap.exists() ? bookingsSnap.val() : {};
-      seatsTaken = seatsTakenSnap.exists() ? seatsTakenSnap.val() : {};
-      presetNames = presetNamesSnap.exists() ? presetNamesSnap.val() : [];
+  // Initial load from database
+  Promise.all([
+    get(bookingsRef),
+    get(seatsTakenRef),
+    get(presetNamesRef)
+  ]).then(([bookingsSnap, seatsTakenSnap, presetNamesSnap]) => {
+    bookings = bookingsSnap.exists() ? bookingsSnap.val() : {};
+    seatsTaken = seatsTakenSnap.exists() ? seatsTakenSnap.val() : {};
+    presetNames = presetNamesSnap.exists() ? presetNamesSnap.val() : [];
 
-      // Sanitize keys from database
-      for (const table in bookings) {
-        const newTable = {};
-        for (const rawName in bookings[table]) {
-          const safeKey = sanitizeKey(rawName);
-          newTable[safeKey] = bookings[table][rawName];
-        }
-        bookings[table] = newTable;
+    // Sanitize keys in bookings
+    for (const table in bookings) {
+      const newTable = {};
+      for (const rawName in bookings[table]) {
+        const safeKey = sanitizeKey(rawName);
+        newTable[safeKey] = bookings[table][rawName];
       }
+      bookings[table] = newTable;
+    }
 
-      for (let i = 1; i <= 28; i++) {
-        if (!(i in seatsTaken)) seatsTaken[i] = 0;
-        if (!(i in bookings)) bookings[i] = {};
-      }
+    // Initialize empty tables if not present
+    for (let i = 1; i <= 28; i++) {
+      if (!(i in seatsTaken)) seatsTaken[i] = 0;
+      if (!(i in bookings)) bookings[i] = {};
+    }
 
-      populateNameSelect();
-      populateAutoNameSelect();
-      refreshTables();
+    populateNameSelect();
+    populateAutoNameSelect();
+    refreshTables();
 
-      autoBookBtn.disabled = false;
-      manageNamesBtn.disabled = false;
-      clearAllBtn.disabled = false;
-    })
-    .catch(console.error);
+    autoBookBtn.disabled = false;
+    manageNamesBtn.disabled = false;
+    clearAllBtn.disabled = false;
+  }).catch(console.error);
 
+  // Firebase listeners for realtime updates
   onValue(bookingsRef, (snapshot) => {
     bookings = snapshot.val() || {};
     refreshTables();
@@ -148,12 +160,14 @@ document.addEventListener('DOMContentLoaded', () => {
     populateAutoNameSelect();
   });
 
+  // Save data to Firebase
   function saveData() {
     set(bookingsRef, bookings).catch(console.error);
     set(seatsTakenRef, seatsTaken).catch(console.error);
     set(presetNamesRef, presetNames).catch(console.error);
   }
 
+  // Create a column of tables given a list of table numbers
   function createColumn(tableNumbers) {
     const column = document.createElement("div");
     column.classList.add("table-column");
@@ -179,17 +193,20 @@ document.addEventListener('DOMContentLoaded', () => {
         namesText += `${name} (${seats})\n`;
       }
 
-      table.innerHTML = `Table ${i}<br />${taken}/${totalSeats}` +
-        (namesText ? `<br /><small style="white-space: pre-wrap;">${namesText.trim()}</small>` : "");
+      table.innerHTML = `
+        Table ${i}<br />
+        ${taken}/${totalSeats}
+        ${namesText ? `<br /><small style="white-space: pre-wrap;">${namesText.trim()}</small>` : ""}
+      `;
 
       table.addEventListener("click", () => openBookingModal(i));
-
       column.appendChild(table);
     }
 
     return column;
   }
 
+  // Refresh the tables display on the page
   function refreshTables() {
     leftSide.innerHTML = "";
     rightSide.innerHTML = "";
@@ -201,32 +218,33 @@ document.addEventListener('DOMContentLoaded', () => {
     rightSide.appendChild(createColumn([8, 9, 10, 11, 12, 13, 14]));
   }
 
-function cleanupExpiredBookings(maxAgeMs = 4 * 60 * 1000) { // 4 hours
-  const now = Date.now();
-  let updated = false;
+  // Cleanup expired bookings older than maxAgeMs (default 4 minutes)
+  function cleanupExpiredBookings(maxAgeMs = 4 * 60 * 1000) {
+    const now = Date.now();
+    let updated = false;
 
-  for (const table in bookings) {
-    const tableBookings = bookings[table];
-    for (const name in tableBookings) {
-      const entry = tableBookings[name];
-
-      // Skip if it's not using new format yet
-      if (typeof entry === "object" && entry.timestamp) {
-        if (now - entry.timestamp > maxAgeMs) {
-          seatsTaken[table] -= entry.seats;
-          delete tableBookings[name];
-          updated = true;
+    for (const table in bookings) {
+      const tableBookings = bookings[table];
+      for (const name in tableBookings) {
+        const entry = tableBookings[name];
+        // Only consider new format objects with timestamp
+        if (typeof entry === "object" && entry.timestamp) {
+          if (now - entry.timestamp > maxAgeMs) {
+            seatsTaken[table] -= entry.seats;
+            delete tableBookings[name];
+            updated = true;
+          }
         }
       }
     }
+
+    if (updated) {
+      saveData();
+      refreshTables();
+    }
   }
 
-  if (updated) {
-    saveData();
-    refreshTables();
-  }
-}
-  
+  // Populate the select dropdown for booking names
   function populateNameSelect() {
     nameSelect.innerHTML = "";
     presetNames.forEach(name => {
@@ -237,6 +255,7 @@ function cleanupExpiredBookings(maxAgeMs = 4 * 60 * 1000) { // 4 hours
     });
   }
 
+  // Populate the auto allocation name select dropdown
   function populateAutoNameSelect() {
     autoNameSelect.innerHTML = "";
     presetNames.forEach(name => {
@@ -247,10 +266,11 @@ function cleanupExpiredBookings(maxAgeMs = 4 * 60 * 1000) { // 4 hours
     });
   }
 
-  // Populate exitNameSelect ONLY for the selected table bookings
+  // Populate the exit select dropdown based on selected table bookings
   function populateExitNameSelect(tableNumber) {
     exitNameSelect.innerHTML = "";
     const names = Object.keys(bookings[tableNumber] || {});
+
     if (names.length === 0) {
       const option = document.createElement("option");
       option.value = "";
@@ -270,25 +290,25 @@ function cleanupExpiredBookings(maxAgeMs = 4 * 60 * 1000) { // 4 hours
     }
   }
 
+  // Open booking modal for a specific table
   function openBookingModal(tableNumber) {
     selectedTableNumber = tableNumber;
     modalTableNumber.textContent = `Table ${tableNumber}`;
     errorMessage.textContent = "";
     peopleInput.value = "";
 
-    // Show current bookings for this table only (optional display element)
+    // Optional display of current bookings for this table
     const tableBookings = bookings[tableNumber] || {};
     let bookingsText = "";
-
     for (const [name, seats] of Object.entries(tableBookings)) {
       bookingsText += `${name}: ${seats} seats\n`;
     }
 
     populateExitNameSelect(tableNumber);
-
     bookingModal.style.display = "block";
   }
 
+  // Cancel booking modal on cancel button click
   cancelButton.addEventListener("click", () => {
     bookingModal.style.display = "none";
   });
@@ -315,7 +335,6 @@ function cleanupExpiredBookings(maxAgeMs = 4 * 60 * 1000) { // 4 hours
     }
 
     const tableBookings = bookings[selectedTableNumber] || {};
-
     if (tableBookings[name]) {
       seatsTaken[selectedTableNumber] -= tableBookings[name];
       if (seatsTaken[selectedTableNumber] < 0) seatsTaken[selectedTableNumber] = 0;
@@ -349,14 +368,12 @@ function cleanupExpiredBookings(maxAgeMs = 4 * 60 * 1000) { // 4 hours
       errorMessage.textContent = "Please select a name.";
       return;
     }
-
     if (isNaN(seats) || seats <= 0) {
       errorMessage.textContent = "Please enter a valid number of seats.";
       return;
     }
 
     const name = sanitizeKey(rawName);
-
     const capacity = seatCapacity[selectedTableNumber];
     const takenSeats = seatsTaken[selectedTableNumber] || 0;
     const currentSeatsForName = bookings[selectedTableNumber]?.[name] || 0;
@@ -368,8 +385,8 @@ function cleanupExpiredBookings(maxAgeMs = 4 * 60 * 1000) { // 4 hours
     }
 
     if (!bookings[selectedTableNumber]) bookings[selectedTableNumber] = {};
-    bookings[selectedTableNumber][name] = seats;
 
+    bookings[selectedTableNumber][name] = seats;
     seatsTaken[selectedTableNumber] = newTotal;
 
     saveData();
@@ -658,3 +675,4 @@ function cleanupExpiredBookings(maxAgeMs = 4 * 60 * 1000) { // 4 hours
   // Run cleanup every 2 minutes
 setInterval(() => cleanupExpiredBookings(), 2 * 60 * 1000);
 });
+
