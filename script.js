@@ -436,6 +436,30 @@ function cleanupExpiredBookings(maxAgeMs = 4 * 60 * 1000) { // 4 hours
       }
     }
 
+    if (pax >= 31) {
+  // Check big tables 16-18 first (already done)
+  // If none fit, try tables 1-15 starting from 1, before trying other zones
+
+  let paxLeft = pax;
+  let tempTables = [];
+  for (let t = 1; t <= 15; t++) {
+    const taken = seatsTaken[t] || 0;
+    const available = seatCapacity[t] - taken;
+    if (available === seatCapacity[t]) {  // empty table
+      const toAssign = Math.min(paxLeft, available);
+      tempTables.push({ t, toAssign });
+      paxLeft -= toAssign;
+      if (paxLeft <= 0) break;
+    }
+  }
+  if (paxLeft <= 0) {
+    for (const { t, toAssign } of tempTables) {
+      allocateToTable(t, toAssign);
+    }
+    saveData(); refreshTables();
+    return assignedTables;
+  }
+
     // If not enough room in a single big table, look for empty tables in one zone
     const zones = [tableZones.A, tableZones.B];
     for (const zone of zones) {
@@ -634,4 +658,5 @@ function cleanupExpiredBookings(maxAgeMs = 4 * 60 * 1000) { // 4 hours
   // Run cleanup every 2 minutes
 setInterval(() => cleanupExpiredBookings(), 2 * 60 * 1000);
 });
+
 
