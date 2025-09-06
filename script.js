@@ -396,53 +396,56 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 🟥 RULE: Large group (≥31 pax)
 if (pax >= 31) {
-  // 👇 Step 1: If big table has full 36 seats, assign 36
-for (const t of bigTables) {
-  const available = getAvailable(t);
-
-  // Only use big table if it's completely empty
-  if (available === 36 && pax > 30) {
-    assignToTable(t, 36);
-    pax -= 36;
-
-    // Remaining pax go only to partially filled or empty 30-pax tables
-    const overflowZone = [15, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28];
-
-    // Try partially filled tables first
-    for (const ot of overflowZone) {
-      const availableSeats = getAvailable(ot);
-      const isPartiallyFilled = (seatsTaken[ot] || 0) > 0;
-
-      if (isPartiallyFilled && availableSeats >= pax) {
-        assignToTable(ot, pax);
-        pax = 0;
-        break;
-      }
-    }
-
-    // If still pax left, try a fully empty 30-pax table
-    if (pax > 0) {
-      for (const ot of overflowZone) {
-        const availableSeats = getAvailable(ot);
-        const isEmpty = (seatsTaken[ot] || 0) === 0;
-
-        if (isEmpty && availableSeats >= pax) {
-          assignToTable(ot, pax);
-          pax = 0;
-          break;
-        }
-      }
-    }
-
+  for (const t of bigTables) {
+    const available = getAvailable(t);
+    
+    // If pax >= 36, assign only to fully empty big tables
+    if (pax >= 36 && available === 36) {
+      assignToTable(t, 36);
+      pax -= 36;
+      
+      // Assign leftovers to overflow zone if any
       if (pax > 0) {
-        alert(`Could not allocate all ${pax} remaining pax due to seat limits.`);
+        const overflowZone = 99; // or whatever number you use
+        assignToTable(overflowZone, pax);
+        pax = 0;
       }
-
+      
+      saveData();
+      refreshTables();
+      return assignedTables;
+    }
+    
+    // If pax is between 31 and 35, assign to any big table with enough seats
+    else if (pax >= 31 && pax <= 35 && available >= pax) {
+      assignToTable(t, pax);
+      pax = 0;
+      
       saveData();
       refreshTables();
       return assignedTables;
     }
   }
+  
+  // If no big table with enough seats found, fallback:
+  // Your fallback logic here, e.g. assign to multiple smaller tables
+  
+  // Example fallback code (simplified):
+  // for (const t of bigTables) {
+  //   const available = getAvailable(t);
+  //   if (available > 0) {
+  //     const assignSeats = Math.min(pax, available);
+  //     assignToTable(t, assignSeats);
+  //     pax -= assignSeats;
+  //     if (pax <= 0) break;
+  //   }
+  // }
+  
+  // saveData();
+  // refreshTables();
+  // return assignedTables;
+}
+
 
   // 👇 Step 3: Fallback — if no big table has 36 seats available
 
@@ -632,6 +635,7 @@ for (const t of bigTables) {
   // Initial refresh
   refreshTables();
 });
+
 
 
 
