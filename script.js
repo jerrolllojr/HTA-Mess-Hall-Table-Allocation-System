@@ -1,4 +1,4 @@
-console.log('JS loaded');
+console.log('JS loaded')
 
 // Top-level imports and Firebase initialization
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
@@ -553,4 +553,3 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initial refresh
   refreshTables();
 });
-
