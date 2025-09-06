@@ -404,7 +404,9 @@ if (pax >= 31) {
       pax -= 36;
 
       // 👇 Step 2: Assign remaining pax only in tables 15 and 19–28
+      // Exclude bigTables (16–18) from overflow zone
       const overflowZone = [15, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28];
+
       for (const ot of overflowZone) {
         if (pax === 0) break;
         const avail = getAvailable(ot);
@@ -414,6 +416,7 @@ if (pax >= 31) {
           pax -= toAssign;
         }
       }
+
 
       if (pax > 0) {
         alert(`Could not allocate all ${pax} remaining pax due to seat limits.`);
@@ -613,6 +616,7 @@ if (pax >= 31) {
   // Initial refresh
   refreshTables();
 });
+
 
 
 
