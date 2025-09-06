@@ -395,64 +395,85 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // 🟥 RULE: Large group (≥31 pax)
-  if (pax >= 31) {
-    // Try big tables first
-    for (const t of bigTables) {
-      if (getAvailable(t) >= pax) {
-        assignToTable(t, pax);
-        saveData();
-        refreshTables();
-        return assignedTables;
-      }
-    }
+if (pax >= 31) {
+  // 👇 Step 1: If big table has full 36 seats, assign 36
+  for (const t of bigTables) {
+    const available = getAvailable(t);
+    if (available >= 36 && pax >= 36) {
+      assignToTable(t, 36);
+      pax -= 36;
 
-    // If not fully seated at big tables, attempt combo of empty then partial tables
-    let zone = null;
-
-    // First, find an empty table that can take at least 30 pax
-    let foundEmpty = false;
-    for (const t of allTables) {
-      if ((seatsTaken[t] || 0) === 0 && getAvailable(t) >= Math.min(pax, 30)) {
-        assignToTable(t, Math.min(pax, getAvailable(t)));
-        if (!zone) zone = tablesZone1.includes(t) ? tablesZone1 : tablesZone2;
-        pax -= Math.min(pax, getAvailable(t));
-        foundEmpty = true;
-        break;
-      }
-    }
-
-    // Try assigning to partially filled tables in same zone
-    if (pax > 0 && zone) {
-      for (const t of zone) {
-        const available = getAvailable(t);
-        if (available > 0) {
-          assignToTable(t, Math.min(pax, available));
-          pax -= Math.min(pax, available);
-          if (pax === 0) break;
+      // 👇 Step 2: Assign remaining pax only in tables 15 and 19–28
+      const overflowZone = [15, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28];
+      for (const ot of overflowZone) {
+        if (pax === 0) break;
+        const avail = getAvailable(ot);
+        if (avail > 0) {
+          const toAssign = Math.min(pax, avail);
+          assignToTable(ot, toAssign);
+          pax -= toAssign;
         }
       }
-    }
 
-    // Still pax left? Try any remaining empty table in same zone
-    if (pax > 0 && zone) {
-      for (const t of zone) {
-        if ((seatsTaken[t] || 0) === 0) {
-          assignToTable(t, Math.min(pax, getAvailable(t)));
-          pax -= Math.min(pax, getAvailable(t));
-          if (pax === 0) break;
-        }
+      if (pax > 0) {
+        alert(`Could not allocate all ${pax} remaining pax due to seat limits.`);
       }
-    }
 
-    // If still pax left, reject
-    if (pax > 0) {
-      alert(`Could not allocate all ${pax} remaining pax due to seat limits.`);
+      saveData();
+      refreshTables();
+      return assignedTables;
     }
-
-    saveData();
-    refreshTables();
-    return assignedTables;
   }
+
+  // 👇 Step 3: Fallback — if no big table has 36 seats available
+
+  // Try to find an empty table that can seat ≥30 pax
+  let zone = null;
+  let foundEmpty = false;
+
+  for (const t of allTables) {
+    if ((seatsTaken[t] || 0) === 0 && getAvailable(t) >= Math.min(pax, 30)) {
+      assignToTable(t, Math.min(pax, getAvailable(t)));
+      if (!zone) zone = tablesZone1.includes(t) ? tablesZone1 : tablesZone2;
+      pax -= Math.min(pax, getAvailable(t));
+      foundEmpty = true;
+      break;
+    }
+  }
+
+  // Try partially filled tables in the same zone
+  if (pax > 0 && zone) {
+    for (const t of zone) {
+      const available = getAvailable(t);
+      if (available > 0) {
+        assignToTable(t, Math.min(pax, available));
+        pax -= Math.min(pax, available);
+        if (pax === 0) break;
+      }
+    }
+  }
+
+  // Try remaining empty tables in the same zone
+  if (pax > 0 && zone) {
+    for (const t of zone) {
+      if ((seatsTaken[t] || 0) === 0) {
+        assignToTable(t, Math.min(pax, getAvailable(t)));
+        pax -= Math.min(pax, getAvailable(t));
+        if (pax === 0) break;
+      }
+    }
+  }
+
+  // Still unable to seat all
+  if (pax > 0) {
+    alert(`Could not allocate all ${pax} remaining pax due to seat limits.`);
+  }
+
+  saveData();
+  refreshTables();
+  return assignedTables;
+}
+
 
   // 🟩 RULE: Small group (≤29 pax)
   if (pax <= 29) {
@@ -592,5 +613,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initial refresh
   refreshTables();
 });
+
 
 
