@@ -401,7 +401,7 @@ for (const t of bigTables) {
   const available = getAvailable(t);
 
   // Only use big table if it's completely empty
-  if (available === 36 && pax >= 36) {
+  if (available === 36 && pax > 30) {
     assignToTable(t, 36);
     pax -= 36;
 
@@ -632,6 +632,7 @@ for (const t of bigTables) {
   // Initial refresh
   refreshTables();
 });
+
 
 
 
