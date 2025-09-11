@@ -431,22 +431,45 @@ if (pax === 0) {
     // For remaining pax, assign empty table(s) and/or partially filled tables
     // Now, try to split into multiple tables if needed
 
-    for (const t of tablesByCapacity) {
-      if (pax === 0) break;
+   let firstAssignedTable = null;
+let spilloverZone = null;
 
-      const capacity = seatCapacity[t];
-      const taken = seatsTaken[t] || 0;
-      const available = capacity - taken;
+for (const t of tablesByCapacity) {
+  if (pax === 0) break;
 
-      if (available > 0) {
-        if (!bookings[t]) bookings[t] = {};
-        const toAssign = Math.min(pax, available);
-        bookings[t][safeName] = (bookings[t][safeName] || 0) + toAssign;
-        seatsTaken[t] = taken + toAssign;
-        assignedTables.push(t);
-        pax -= toAssign;
+  const capacity = seatCapacity[t];
+  const taken = seatsTaken[t] || 0;
+  const available = capacity - taken;
+
+  // Determine the zone of the current table
+  const isZone1 = t >= 1 && t <= 14;
+  const isZone2 = t >= 15 && t <= 18;
+
+  if (available > 0) {
+    // If firstAssignedTable is null, this is the first table we are assigning to
+    if (!firstAssignedTable) {
+      firstAssignedTable = t;
+      if (isZone1) spilloverZone = 1;
+      else if (isZone2) spilloverZone = 2;
+      else spilloverZone = 0; // No restriction
+    } else {
+      // For subsequent tables, enforce zone rules
+      if (
+        (spilloverZone === 1 && !isZone1) ||
+        (spilloverZone === 2 && !isZone2)
+      ) {
+        continue; // Skip tables outside the allowed zone
       }
     }
+
+    if (!bookings[t]) bookings[t] = {};
+    const toAssign = Math.min(pax, available);
+    bookings[t][safeName] = (bookings[t][safeName] || 0) + toAssign;
+    seatsTaken[t] = taken + toAssign;
+    assignedTables.push(t);
+    pax -= toAssign;
+  }
+}
 
     saveData();
     refreshTables();
@@ -558,6 +581,7 @@ if (pax === 0) {
   // Initial refresh
   refreshTables();
 });
+
 
 
 
