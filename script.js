@@ -109,14 +109,25 @@ document.addEventListener('DOMContentLoaded', () => {
       presetNames = presetNamesSnap.exists() ? presetNamesSnap.val() : [];
 
       // Sanitize keys from database
-      for (const table in bookings) {
-        const newTable = {};
-        for (const rawName in bookings[table]) {
-          const safeKey = sanitizeKey(rawName);
-          newTable[safeKey] = bookings[table][rawName];
-        }
-        bookings[table] = newTable;
-      }
+for (const table in bookings) {
+  const newTable = {};
+  for (const rawName in bookings[table]) {
+    const safeKey = sanitizeKey(rawName);
+    const booking = bookings[table][rawName];
+
+    if (typeof booking === 'number') {
+      // Upgrade legacy format to new format
+      newTable[safeKey] = {
+        seats: booking,
+        timestamp: Date.now()
+      };
+    } else if (typeof booking === 'object' && booking !== null) {
+      // Already in correct format
+      newTable[safeKey] = booking;
+    }
+  }
+  bookings[table] = newTable;
+}
 
       for (let i = 1; i <= 28; i++) {
         if (!(i in seatsTaken)) seatsTaken[i] = 0;
@@ -680,6 +691,7 @@ function cleanupOldBookings() {
 setInterval(cleanupOldBookings, 60 * 1000); // runs cleanup every 1 minute
 
 });
+
 
 
 
