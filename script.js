@@ -385,7 +385,7 @@ if (pax >= 31) {
     let assignedTables = [];
 
     // Try to fit pax in already partially filled table(s)
-// 1. Try to assign to a completely empty table first
+// 1. Try to assign all pax to a single empty table
 for (const t of tablesByCapacity) {
   const capacity = seatCapacity[t];
   const taken = seatsTaken[t] || 0;
@@ -406,19 +406,20 @@ if (pax === 0) {
   return assignedTables;
 }
 
-// 2. If no empty table can fit, try partially filled table(s) with enough room
+// 2. If not possible, fill up empty tables (split group across empty tables only)
 for (const t of tablesByCapacity) {
+  if (pax === 0) break;
+
   const capacity = seatCapacity[t];
   const taken = seatsTaken[t] || 0;
-  const available = capacity - taken;
 
-  if (available >= pax) {
+  if (taken === 0) { // only empty tables here
+    const toAssign = Math.min(pax, capacity);
     if (!bookings[t]) bookings[t] = {};
-    bookings[t][safeName] = pax;
-    seatsTaken[t] = taken + pax;
+    bookings[t][safeName] = toAssign;
+    seatsTaken[t] = toAssign;
     assignedTables.push(t);
-    pax = 0;
-    break;
+    pax -= toAssign;
   }
 }
 
@@ -428,10 +429,9 @@ if (pax === 0) {
   return assignedTables;
 }
 
-    // For remaining pax, assign empty table(s) and/or partially filled tables
-    // Now, try to split into multiple tables if needed
+// 3. Finally, spillover to partially filled tables within the zone
 
-   let firstAssignedTable = null;
+let firstAssignedTable = null;
 let spilloverZone = null;
 
 for (const t of tablesByCapacity) {
@@ -441,24 +441,19 @@ for (const t of tablesByCapacity) {
   const taken = seatsTaken[t] || 0;
   const available = capacity - taken;
 
-  // Determine the zone of the current table
   const isZone1 = t >= 1 && t <= 14;
   const isZone2 = t >= 15 && t <= 28;
 
   if (available > 0) {
-    // If firstAssignedTable is null, this is the first table we are assigning to
     if (!firstAssignedTable) {
       firstAssignedTable = t;
-      if (isZone1) spilloverZone = 1;
-      else if (isZone2) spilloverZone = 2;
-      else spilloverZone = 0; // No restriction
+      spilloverZone = isZone1 ? 1 : (isZone2 ? 2 : 0);
     } else {
-      // For subsequent tables, enforce zone rules
       if (
         (spilloverZone === 1 && !isZone1) ||
         (spilloverZone === 2 && !isZone2)
       ) {
-        continue; // Skip tables outside the allowed zone
+        continue;
       }
     }
 
@@ -471,10 +466,9 @@ for (const t of tablesByCapacity) {
   }
 }
 
-    saveData();
-    refreshTables();
-    return assignedTables;
-  }
+saveData();
+refreshTables();
+return assignedTables;
 
   autoBookBtn.addEventListener("click", () => {
     const rawName = autoNameSelect.value.trim();
@@ -581,6 +575,7 @@ for (const t of tablesByCapacity) {
   // Initial refresh
   refreshTables();
 });
+
 
 
 
