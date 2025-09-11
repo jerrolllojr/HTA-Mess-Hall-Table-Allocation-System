@@ -470,13 +470,13 @@ function getZone(tableNumber) {
         pax -= toAssign;
         tablesUsed++;
 
-        if (tablesUsed > 2) {
+        if (tablesUsed > 3) {
           // Revert all
           for (const assigned of assignedTables) {
             seatsTaken[assigned] -= bookings[assigned][safeName];
             delete bookings[assigned][safeName];
           }
-          alert("Cannot allocate more than 2 tables for this squad.");
+          alert("Cannot allocate more than 3 tables for this squad.");
           refreshTables();
           return [];
         }
@@ -542,12 +542,12 @@ function getZone(tableNumber) {
       pax -= toAssign;
       tablesUsed++;
 
-      if (tablesUsed > 2) {
+      if (tablesUsed > 3) {
         for (const assigned of assignedTables) {
           seatsTaken[assigned] -= bookings[assigned][safeName];
           delete bookings[assigned][safeName];
         }
-        alert("Cannot allocate more than 2 tables for this squad.");
+        alert("Cannot allocate more than 3 tables for this squad.");
         refreshTables();
         return [];
       }
@@ -665,6 +665,7 @@ function getZone(tableNumber) {
   // Initial refresh
   refreshTables();
 });
+
 
 
 
