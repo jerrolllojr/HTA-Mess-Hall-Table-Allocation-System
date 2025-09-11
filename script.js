@@ -443,7 +443,7 @@ for (const t of tablesByCapacity) {
 
   // Determine the zone of the current table
   const isZone1 = t >= 1 && t <= 14;
-  const isZone2 = t >= 15 && t <= 18;
+  const isZone2 = t >= 15 && t <= 28;
 
   if (available > 0) {
     // If firstAssignedTable is null, this is the first table we are assigning to
@@ -581,6 +581,7 @@ for (const t of tablesByCapacity) {
   // Initial refresh
   refreshTables();
 });
+
 
 
 
