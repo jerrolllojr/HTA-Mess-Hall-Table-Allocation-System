@@ -1,5 +1,6 @@
 console.log('JS loaded')
 
+
 // Top-level imports and Firebase initialization
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getDatabase, ref, get, onValue, set } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
@@ -344,12 +345,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (!bookings[selectedTableNumber]) bookings[selectedTableNumber] = {};
-bookings[selectedTableNumber][name] = {
-  seats: seats,
-  timestamp: Date.now()
-};
-seatsTaken[selectedTableNumber] = newTotal;
+    bookings[selectedTableNumber][name] = seats;
 
+    seatsTaken[selectedTableNumber] = newTotal;
 
     saveData();
     refreshTables();
@@ -358,18 +356,19 @@ seatsTaken[selectedTableNumber] = newTotal;
     bookingModal.style.display = "none";
   });
 
-// AUTO ALLOCATION LOGIC  
-function autoAllocateTable(name, pax) {
+  // Auto Table Allocation
+  function autoAllocateTable(name, pax) {
   const safeName = sanitizeKey(name);
 
   // Clear previous booking for this name
   for (const tableNum in bookings) {
     if (bookings[tableNum][safeName]) {
-      seatsTaken[tableNum] -= bookings[tableNum][safeName].seats;  // Use .seats here!
+      seatsTaken[tableNum] -= bookings[tableNum][safeName];
       delete bookings[tableNum][safeName];
     }
   }
 
+  // No priority — treat all tables equally
   const tablesByCapacity = [];
   for (let i = 1; i <= 28; i++) {
     tablesByCapacity.push(i);
@@ -377,86 +376,82 @@ function autoAllocateTable(name, pax) {
 
   let assignedTables = [];
 
-  // === Big group logic (pax >= 30)
-  if (pax >= 30) {
-    // Step 1: Try one empty table with capacity >= pax
+
+    // Try to fit pax in already partially filled table(s)
     for (const t of tablesByCapacity) {
       const capacity = seatCapacity[t];
       const taken = seatsTaken[t] || 0;
-      if (taken === 0 && capacity >= pax) {
+      const available = capacity - taken;
+
+      if (available >= pax) {
+        // assign all pax here
         if (!bookings[t]) bookings[t] = {};
-        bookings[t][safeName] = {
-          seats: pax,
-          timestamp: Date.now()
-        };
-        seatsTaken[t] = pax;
+        bookings[t][safeName] = pax;
+        seatsTaken[t] = taken + pax;
         assignedTables.push(t);
         pax = 0;
+        break;
+      }
+    }
+
+    if (pax === 0) {
+      saveData();
+      refreshTables();
+      return assignedTables;
+    }
+
+    // NEW: If pax >= 31 and big tables couldn't accommodate
+if (pax >= 31) {
+  // Try completely empty tables from otherTables (1–15, 19–28)
+  for (const t of otherTables) {
+    const taken = seatsTaken[t] || 0;
+    const capacity = seatCapacity[t];
+    if (taken === 0 && capacity >= pax) {
+      if (!bookings[t]) bookings[t] = {};
+      bookings[t][safeName] = pax;
+      seatsTaken[t] = pax;
+      assignedTables.push(t);
+      pax = 0;
+      break;
+    }
+  }
+
+  if (pax === 0) {
+    saveData();
+    refreshTables();
+    return assignedTables;
+  }
+}
+    
+    // If can't fit into one partially filled table,
+    // If pax <=30, assign full empty table (don't merge with partial table)
+    if (pax <= 30) {
+      // Look for empty table with capacity >= pax
+      for (const t of tablesByCapacity) {
+        const taken = seatsTaken[t] || 0;
+        const capacity = seatCapacity[t];
+        if (taken === 0 && capacity >= pax) {
+          if (!bookings[t]) bookings[t] = {};
+          bookings[t][safeName] = pax;
+          seatsTaken[t] = pax;
+          assignedTables.push(t);
+          pax = 0;
+          break;
+        }
+      }
+      if (pax === 0) {
         saveData();
         refreshTables();
         return assignedTables;
       }
     }
 
-    // Step 2: Try combining one empty table and one partially filled table
-    let emptyTable = null;
-    let partialTable = null;
-    let emptyCapacity = 0;
-    let partialAvailable = 0;
+    // For remaining pax, assign empty table(s) and/or partially filled tables
+    // Now, try to split into multiple tables if needed
 
-    for (const t of tablesByCapacity) {
-      const capacity = seatCapacity[t];
-      const taken = seatsTaken[t] || 0;
-
-      if (emptyTable === null && taken === 0) {
-        emptyTable = t;
-        emptyCapacity = capacity;
-      }
-
-      if (partialTable === null && taken > 0 && (capacity - taken) > 0) {
-        partialTable = t;
-        partialAvailable = capacity - taken;
-      }
-
-      if (emptyTable && partialTable && (emptyCapacity + partialAvailable >= pax)) {
-        break;
-      }
-    }
-
-    if (emptyTable && partialTable && (emptyCapacity + partialAvailable >= pax)) {
-      // Assign pax to empty and partial table
-      const assignToEmpty = Math.min(pax, emptyCapacity);
-      const assignToPartial = pax - assignToEmpty;
-
-      // Empty table
-      if (!bookings[emptyTable]) bookings[emptyTable] = {};
-      bookings[emptyTable][safeName] = {
-        seats: assignToEmpty,
-        timestamp: Date.now()
-      };
-      seatsTaken[emptyTable] = assignToEmpty;
-      assignedTables.push(emptyTable);
-
-      // Partially filled table
-      if (!bookings[partialTable]) bookings[partialTable] = {};
-      const prevSeats = bookings[partialTable][safeName]?.seats || 0;
-      bookings[partialTable][safeName] = {
-        seats: prevSeats + assignToPartial,
-        timestamp: Date.now()
-      };
-      seatsTaken[partialTable] += assignToPartial;
-      assignedTables.push(partialTable);
-
-      pax = 0;
-
-      saveData();
-      refreshTables();
-      return assignedTables;
-    }
-
-    // Step 3: Fallback — split across multiple tables
     for (const t of tablesByCapacity) {
       if (pax === 0) break;
+
       const capacity = seatCapacity[t];
       const taken = seatsTaken[t] || 0;
       const available = capacity - taken;
@@ -464,11 +459,7 @@ function autoAllocateTable(name, pax) {
       if (available > 0) {
         if (!bookings[t]) bookings[t] = {};
         const toAssign = Math.min(pax, available);
-        const prevSeats = bookings[t][safeName]?.seats || 0;
-        bookings[t][safeName] = {
-          seats: prevSeats + toAssign,
-          timestamp: Date.now()
-        };
+        bookings[t][safeName] = (bookings[t][safeName] || 0) + toAssign;
         seatsTaken[t] = taken + toAssign;
         assignedTables.push(t);
         pax -= toAssign;
@@ -479,98 +470,6 @@ function autoAllocateTable(name, pax) {
     refreshTables();
     return assignedTables;
   }
-
-  // === Small group logic (pax < 30)
-
-  // Step 1: Try partially filled table with enough space
-  for (const t of tablesByCapacity) {
-    const capacity = seatCapacity[t];
-    const taken = seatsTaken[t] || 0;
-    const available = capacity - taken;
-
-    if (available >= pax) {
-      if (!bookings[t]) bookings[t] = {};
-      bookings[t][safeName] = {
-        seats: pax,
-        timestamp: Date.now()
-      };
-      seatsTaken[t] = taken + pax;
-      assignedTables.push(t);
-      pax = 0;
-      saveData();
-      refreshTables();
-      return assignedTables;
-    }
-  }
-
-  // Step 2: Try empty table with enough capacity
-  for (const t of tablesByCapacity) {
-    const capacity = seatCapacity[t];
-    const taken = seatsTaken[t] || 0;
-    if (taken === 0 && capacity >= pax) {
-      if (!bookings[t]) bookings[t] = {};
-      bookings[t][safeName] = {
-        seats: pax,
-        timestamp: Date.now()
-      };
-      seatsTaken[t] = pax;
-      assignedTables.push(t);
-      pax = 0;
-      saveData();
-      refreshTables();
-      return assignedTables;
-    }
-  }
-
-  // Step 3: Fallback — split across multiple tables
-  for (const t of tablesByCapacity) {
-    if (pax === 0) break;
-
-    const capacity = seatCapacity[t];
-    const taken = seatsTaken[t] || 0;
-    const available = capacity - taken;
-
-    if (available > 0) {
-      if (!bookings[t]) bookings[t] = {};
-      const toAssign = Math.min(pax, available);
-      const prevSeats = bookings[t][safeName]?.seats || 0;
-      bookings[t][safeName] = {
-        seats: prevSeats + toAssign,
-        timestamp: Date.now()
-      };
-      seatsTaken[t] = taken + toAssign;
-      assignedTables.push(t);
-      pax -= toAssign;
-    }
-  }
-
-  saveData();
-  refreshTables();
-  return assignedTables;
-}
-
-  // Put this right after autoAllocateTable function
-function cleanupOldBookings() {
-  const now = Date.now();
-  const THIRTY_FIVE_MINUTES = 35 * 60 * 1000;
-  let changed = false;
-
-  for (const tableNum in bookings) {
-    for (const nameKey in bookings[tableNum]) {
-      const booking = bookings[tableNum][nameKey];
-      if (booking.timestamp && (now - booking.timestamp) > THIRTY_FIVE_MINUTES) {
-        seatsTaken[tableNum] -= booking.seats;
-        delete bookings[tableNum][nameKey];
-        changed = true;
-      }
-    }
-  }
-
-  if (changed) {
-    saveData();
-    refreshTables();
-  }
-}
 
   autoBookBtn.addEventListener("click", () => {
     const rawName = autoNameSelect.value.trim();
@@ -676,7 +575,4 @@ function cleanupOldBookings() {
 
   // Initial refresh
   refreshTables();
-
-setInterval(cleanupOldBookings, 60 * 1000); // runs cleanup every 1 minute
-
 });
