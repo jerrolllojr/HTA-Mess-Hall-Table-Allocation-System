@@ -355,8 +355,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // AUTO ALLOCATION LOGIC
   function autoAllocateTable(name, pax) {
+    const safeName = sanitizeKey(name);
+    // Clear previous booking of this name first
+    for (const tableNum in bookings) {
+      if (bookings[tableNum][safeName]) {
+        seatsTaken[tableNum] -= bookings[tableNum][safeName];
+        delete bookings[tableNum][safeName];
+      }
+    }
   const safeName = sanitizeKey(name);
 
+    // 1) If pax >=31, try to seat in tables 16-18 first with enough capacity
+    const bigTables = [16, 17, 18];
+    const otherTables = [];
+    for (let i = 1; i <= 28; i++) {
+      if (!bigTables.includes(i)) otherTables.push(i);
   // 1. Clear existing bookings for this name
   for (const tableNum in bookings) {
     if (bookings[tableNum][safeName]) {
@@ -372,15 +385,30 @@ document.addEventListener('DOMContentLoaded', () => {
   const section2 = Array.from({ length: 14 }, (_, i) => i + 15);
   const largeTables = [16, 17, 18];
 
+    const tablesByCapacity = pax >= 31 ? bigTables.concat(otherTables) : otherTables.concat(bigTables);
   const getSection = (tableNum) => tableNum <= 14 ? 1 : 2;
 
+    let assignedTables = [];
   const tryAssignToTable = (tableNum, paxToAssign) => {
     const taken = seatsTaken[tableNum] || 0;
     const capacity = seatCapacity[tableNum];
     const available = capacity - taken;
 
+    // Try to fit pax in already partially filled table(s)
+    for (const t of tablesByCapacity) {
+      const capacity = seatCapacity[t];
+      const taken = seatsTaken[t] || 0;
+      const available = capacity - taken;
     if (available <= 0) return 0;
 
+      if (available >= pax) {
+        // assign all pax here
+        if (!bookings[t]) bookings[t] = {};
+        bookings[t][safeName] = pax;
+        seatsTaken[t] = taken + pax;
+        assignedTables.push(t);
+        pax = 0;
+        break;
     const seats = Math.min(paxToAssign, available);
 
     if (!bookings[tableNum]) bookings[tableNum] = {};
@@ -405,6 +433,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
+    if (pax === 0) {
     // If seated fully in a large table, done
     if (remainingPax === 0) {
       saveData();
@@ -412,6 +441,27 @@ document.addEventListener('DOMContentLoaded', () => {
       return assignedTables;
     }
 
+    // If can't fit into one partially filled table,
+    // If pax <=30, assign full empty table (don't merge with partial table)
+    if (pax <= 30) {
+      // Look for empty table with capacity >= pax
+      for (const t of tablesByCapacity) {
+        const taken = seatsTaken[t] || 0;
+        const capacity = seatCapacity[t];
+        if (taken === 0 && capacity >= pax) {
+          if (!bookings[t]) bookings[t] = {};
+          bookings[t][safeName] = pax;
+          seatsTaken[t] = pax;
+          assignedTables.push(t);
+          pax = 0;
+          break;
+        }
+      }
+      if (pax === 0) {
+        saveData();
+        refreshTables();
+        return assignedTables;
+      }
     // 2. Large tables unavailable or insufficient — find empty table in either section
     const findEmptyTableInSection = (section) => {
       const sectionTables = section === 1 ? section1 : section2;
@@ -437,25 +487,33 @@ document.addEventListener('DOMContentLoaded', () => {
       return [];
     }
 
+    // For remaining pax, assign empty table(s) and/or partially filled tables
+    // Now, try to split into multiple tables if needed
     // 3. Assign to first empty table in chosen section
     remainingPax -= tryAssignToTable(firstTable, remainingPax);
 
+    for (const t of tablesByCapacity) {
+      if (pax === 0) break;
     // 4. Assign remaining pax to other tables in same section (partial first, then empty)
-const sectionTables = chosenSection === 1 ? section1 : section2;
+    const sectionTables = chosenSection === 1 ? section1 : section2;
 
-// Exclude partially/full occupied tables 16–18 from further allocation
-const safeSectionTables = sectionTables.filter((t) => {
-  if ([16, 17, 18].includes(t)) {
-    return seatsTaken[t] === 0; // Only allow if completely empty
-  }
-  return true;
-});
+      const capacity = seatCapacity[t];
+      const taken = seatsTaken[t] || 0;
+      const available = capacity - taken;
+    for (const t of sectionTables) {
+      if (remainingPax === 0) break;
+      if (t === firstTable) continue; // already assigned
 
-for (const t of safeSectionTables) {
-  if (remainingPax === 0) break;
-  if (t === firstTable) continue; // already assigned
-  remainingPax -= tryAssignToTable(t, remainingPax);
-}
+      if (available > 0) {
+        if (!bookings[t]) bookings[t] = {};
+        const toAssign = Math.min(pax, available);
+        bookings[t][safeName] = (bookings[t][safeName] || 0) + toAssign;
+        seatsTaken[t] = taken + toAssign;
+        assignedTables.push(t);
+        pax -= toAssign;
+      }
+      remainingPax -= tryAssignToTable(t, remainingPax);
+    }
 
     if (remainingPax > 0) {
       alert(`Only partially seated squad (${pax - remainingPax}/${pax}). Not enough space in one section.`);
@@ -466,14 +524,24 @@ for (const t of safeSectionTables) {
     return assignedTables;
   }
 
+  autoBookBtn.addEventListener("click", () => {
+    const rawName = autoNameSelect.value.trim();
+    const pax = parseInt(autoPaxInput.value);
   // === NON-SQUAD LOGIC ===
 
+    if (!rawName) {
+      alert("Please select a name.");
+      return;
+    }
   // 1. Try partially filled tables with enough space
   for (let i = 1; i <= 28; i++) {
     const capacity = seatCapacity[i];
     const taken = seatsTaken[i] || 0;
     const available = capacity - taken;
 
+    if (isNaN(pax) || pax <= 0) {
+      alert("Please enter a valid number of pax.");
+      return;
     if (available >= pax) {
       tryAssignToTable(i, pax);
       saveData();
@@ -482,17 +550,24 @@ for (const t of safeSectionTables) {
     }
   }
 
+    const assigned = autoAllocateTable(rawName, pax);
   // 2. Try empty tables with enough space
   for (let i = 1; i <= 28; i++) {
     const taken = seatsTaken[i] || 0;
     const capacity = seatCapacity[i];
 
+    if (assigned.length > 0) {
+      alert(`Allocated ${rawName} (${pax} pax) to table(s): ${assigned.join(", ")}`);
+      autoPaxInput.value = "";
+    } else {
+      alert("Could not allocate seats with current availability.");
     if (taken === 0 && capacity >= pax) {
       tryAssignToTable(i, pax);
       saveData();
       refreshTables();
       return [i];
     }
+  });
   }
 
   // 3. As last resort, split across multiple tables
@@ -591,4 +666,3 @@ for (const t of safeSectionTables) {
   // Initial refresh
   refreshTables();
 });
-
