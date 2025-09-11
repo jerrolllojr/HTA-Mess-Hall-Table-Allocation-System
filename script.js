@@ -367,7 +367,7 @@ function getZone(tableNumber) {
   });
 
   // AUTO ALLOCATION LOGIC
-  function autoAllocateTable(name, pax, preferredZone = null) {
+ function autoAllocateTable(name, pax, preferredZone = null) {
   const safeName = sanitizeKey(name);
 
   // Clear previous booking for this name
@@ -389,7 +389,108 @@ function getZone(tableNumber) {
 
   let assignedTables = [];
 
-  // === Step 1: Try partially filled table with enough space (exact fit)
+  // === Big group logic (pax >= 30)
+  if (pax >= 30) {
+    // Step 1: Try one empty table with capacity >= pax
+    for (const t of tablesByCapacity) {
+      const capacity = seatCapacity[t];
+      const taken = seatsTaken[t] || 0;
+      if (taken === 0 && capacity >= pax) {
+        if (!bookings[t]) bookings[t] = {};
+        bookings[t][safeName] = pax;
+        seatsTaken[t] = pax;
+        assignedTables.push(t);
+        saveData();
+        refreshTables();
+        return assignedTables;
+      }
+    }
+
+    // Step 2: Try combining one empty + one partially filled
+    let emptyTable = null;
+    let partialTable = null;
+    let emptyCapacity = 0;
+    let partialAvailable = 0;
+
+    for (const t of tablesByCapacity) {
+      const capacity = seatCapacity[t];
+      const taken = seatsTaken[t] || 0;
+
+      if (emptyTable === null && taken === 0) {
+        emptyTable = t;
+        emptyCapacity = capacity;
+      }
+
+      if (partialTable === null && taken > 0 && (capacity - taken) > 0) {
+        partialTable = t;
+        partialAvailable = capacity - taken;
+      }
+
+      if (emptyTable && partialTable && (emptyCapacity + partialAvailable >= pax)) {
+        break;
+      }
+    }
+
+    if (emptyTable && partialTable && (emptyCapacity + partialAvailable >= pax)) {
+      const assignToEmpty = Math.min(pax, emptyCapacity);
+      const assignToPartial = pax - assignToEmpty;
+
+      if (!bookings[emptyTable]) bookings[emptyTable] = {};
+      bookings[emptyTable][safeName] = assignToEmpty;
+      seatsTaken[emptyTable] = assignToEmpty;
+      assignedTables.push(emptyTable);
+
+      if (!bookings[partialTable]) bookings[partialTable] = {};
+      bookings[partialTable][safeName] = assignToPartial;
+      seatsTaken[partialTable] += assignToPartial;
+      assignedTables.push(partialTable);
+
+      saveData();
+      refreshTables();
+      return assignedTables;
+    }
+
+    // Step 3: Fallback — split across multiple tables, empty tables first
+    let tablesUsed = 0;
+
+    const sortedTables = tablesByCapacity.slice().sort((a, b) => {
+      const aTaken = seatsTaken[a] || 0;
+      const bTaken = seatsTaken[b] || 0;
+      const aAvailable = seatCapacity[a] - aTaken;
+      const bAvailable = seatCapacity[b] - bTaken;
+
+      if (aTaken === 0 && bTaken > 0) return -1; // a empty, b partial
+      if (aTaken > 0 && bTaken === 0) return 1;  // a partial, b empty
+      return bAvailable - aAvailable; // descending by available seats
+    });
+
+    for (const t of sortedTables) {
+      if (pax === 0) break;
+
+      const capacity = seatCapacity[t];
+      const taken = seatsTaken[t] || 0;
+      const available = capacity - taken;
+
+      if (available > 0) {
+        if (!bookings[t]) bookings[t] = {};
+        const toAssign = Math.min(pax, available);
+
+        bookings[t][safeName] = (bookings[t][safeName] || 0) + toAssign;
+        seatsTaken[t] = taken + toAssign;
+        assignedTables.push(t);
+        pax -= toAssign;
+        tablesUsed++;
+      }
+    }
+
+    saveData();
+    refreshTables();
+    return assignedTables;
+  }
+
+  // === Small group logic (pax < 30)
+
+  // Step 1: Try partially filled table with enough space
   for (const t of tablesByCapacity) {
     const capacity = seatCapacity[t];
     const taken = seatsTaken[t] || 0;
@@ -406,11 +507,10 @@ function getZone(tableNumber) {
     }
   }
 
-  // === Step 2: Try one empty table with enough capacity
+  // Step 2: Try empty table with enough capacity
   for (const t of tablesByCapacity) {
     const capacity = seatCapacity[t];
     const taken = seatsTaken[t] || 0;
-
     if (taken === 0 && capacity >= pax) {
       if (!bookings[t]) bookings[t] = {};
       bookings[t][safeName] = pax;
@@ -422,8 +522,21 @@ function getZone(tableNumber) {
     }
   }
 
-  // === Step 3: Fallback — split across multiple tables logically
-  for (const t of tablesByCapacity) {
+  // Step 3: Fallback — split across multiple tables, empty tables first
+  let tablesUsed = 0;
+
+  const sortedTablesSmall = tablesByCapacity.slice().sort((a, b) => {
+    const aTaken = seatsTaken[a] || 0;
+    const bTaken = seatsTaken[b] || 0;
+    const aAvailable = seatCapacity[a] - aTaken;
+    const bAvailable = seatCapacity[b] - bTaken;
+
+    if (aTaken === 0 && bTaken > 0) return -1;
+    if (aTaken > 0 && bTaken === 0) return 1;
+    return bAvailable - aAvailable;
+  });
+
+  for (const t of sortedTablesSmall) {
     if (pax === 0) break;
 
     const capacity = seatCapacity[t];
@@ -438,18 +551,8 @@ function getZone(tableNumber) {
       seatsTaken[t] = taken + toAssign;
       assignedTables.push(t);
       pax -= toAssign;
+      tablesUsed++;
     }
-  }
-
-  if (pax > 0) {
-    // Not enough seats overall – revert
-    for (const t of assignedTables) {
-      seatsTaken[t] -= bookings[t][safeName];
-      delete bookings[t][safeName];
-    }
-    alert("Could not allocate all seats with current availability.");
-    refreshTables();
-    return [];
   }
 
   saveData();
@@ -563,6 +666,7 @@ function getZone(tableNumber) {
   // Initial refresh
   refreshTables();
 });
+
 
 
 
