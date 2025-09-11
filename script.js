@@ -176,12 +176,10 @@ document.addEventListener('DOMContentLoaded', () => {
         table.classList.add("partial");
       }
 
-let namesText = "";
-for (const [name, booking] of Object.entries(tableBookings)) {
-  const seats = typeof booking === 'object' ? booking.seats : booking;
-  namesText += `${name} (${seats})\n`;
-}
-
+      let namesText = "";
+      for (const [name, seats] of Object.entries(tableBookings)) {
+        namesText += `${name} (${seats})\n`;
+      }
 
       table.innerHTML = `Table ${i}<br />${taken}/${totalSeats}` +
         (namesText ? `<br /><small style="white-space: pre-wrap;">${namesText.trim()}</small>` : "");
@@ -238,14 +236,11 @@ for (const [name, booking] of Object.entries(tableBookings)) {
       exitButton.disabled = true;
     } else {
       names.forEach(name => {
-  const booking = bookings[tableNumber][name];
-  const seats = typeof booking === 'object' ? booking.seats : booking;
-  const option = document.createElement("option");
-  option.value = name;
-  option.textContent = `${name} (${seats} seats)`;
-  exitNameSelect.appendChild(option);
-});
-
+        const option = document.createElement("option");
+        option.value = name;
+        option.textContent = `${name} (${bookings[tableNumber][name]} seats)`;
+        exitNameSelect.appendChild(option);
+      });
       exitNameSelect.disabled = false;
       exitButton.disabled = false;
     }
@@ -349,12 +344,9 @@ for (const [name, booking] of Object.entries(tableBookings)) {
     }
 
     if (!bookings[selectedTableNumber]) bookings[selectedTableNumber] = {};
-bookings[selectedTableNumber][name] = {
-  seats: seats,
-  timestamp: Date.now()
-};
-seatsTaken[selectedTableNumber] = newTotal;
+    bookings[selectedTableNumber][name] = seats;
 
+    seatsTaken[selectedTableNumber] = newTotal;
 
     saveData();
     refreshTables();
@@ -363,14 +355,13 @@ seatsTaken[selectedTableNumber] = newTotal;
     bookingModal.style.display = "none";
   });
 
-// AUTO ALLOCATION LOGIC  
-function autoAllocateTable(name, pax) {
+  function autoAllocateTable(name, pax) {
   const safeName = sanitizeKey(name);
 
   // Clear previous booking for this name
   for (const tableNum in bookings) {
     if (bookings[tableNum][safeName]) {
-      seatsTaken[tableNum] -= bookings[tableNum][safeName].seats;  // Use .seats here!
+      seatsTaken[tableNum] -= bookings[tableNum][safeName];
       delete bookings[tableNum][safeName];
     }
   }
@@ -390,10 +381,7 @@ function autoAllocateTable(name, pax) {
       const taken = seatsTaken[t] || 0;
       if (taken === 0 && capacity >= pax) {
         if (!bookings[t]) bookings[t] = {};
-        bookings[t][safeName] = {
-          seats: pax,
-          timestamp: Date.now()
-        };
+        bookings[t][safeName] = pax;
         seatsTaken[t] = pax;
         assignedTables.push(t);
         pax = 0;
@@ -435,20 +423,13 @@ function autoAllocateTable(name, pax) {
 
       // Empty table
       if (!bookings[emptyTable]) bookings[emptyTable] = {};
-      bookings[emptyTable][safeName] = {
-        seats: assignToEmpty,
-        timestamp: Date.now()
-      };
+      bookings[emptyTable][safeName] = assignToEmpty;
       seatsTaken[emptyTable] = assignToEmpty;
       assignedTables.push(emptyTable);
 
       // Partially filled table
       if (!bookings[partialTable]) bookings[partialTable] = {};
-      const prevSeats = bookings[partialTable][safeName]?.seats || 0;
-      bookings[partialTable][safeName] = {
-        seats: prevSeats + assignToPartial,
-        timestamp: Date.now()
-      };
+      bookings[partialTable][safeName] = assignToPartial;
       seatsTaken[partialTable] += assignToPartial;
       assignedTables.push(partialTable);
 
@@ -469,11 +450,7 @@ function autoAllocateTable(name, pax) {
       if (available > 0) {
         if (!bookings[t]) bookings[t] = {};
         const toAssign = Math.min(pax, available);
-        const prevSeats = bookings[t][safeName]?.seats || 0;
-        bookings[t][safeName] = {
-          seats: prevSeats + toAssign,
-          timestamp: Date.now()
-        };
+        bookings[t][safeName] = (bookings[t][safeName] || 0) + toAssign;
         seatsTaken[t] = taken + toAssign;
         assignedTables.push(t);
         pax -= toAssign;
@@ -495,10 +472,7 @@ function autoAllocateTable(name, pax) {
 
     if (available >= pax) {
       if (!bookings[t]) bookings[t] = {};
-      bookings[t][safeName] = {
-        seats: pax,
-        timestamp: Date.now()
-      };
+      bookings[t][safeName] = pax;
       seatsTaken[t] = taken + pax;
       assignedTables.push(t);
       pax = 0;
@@ -514,10 +488,7 @@ function autoAllocateTable(name, pax) {
     const taken = seatsTaken[t] || 0;
     if (taken === 0 && capacity >= pax) {
       if (!bookings[t]) bookings[t] = {};
-      bookings[t][safeName] = {
-        seats: pax,
-        timestamp: Date.now()
-      };
+      bookings[t][safeName] = pax;
       seatsTaken[t] = pax;
       assignedTables.push(t);
       pax = 0;
@@ -538,11 +509,7 @@ function autoAllocateTable(name, pax) {
     if (available > 0) {
       if (!bookings[t]) bookings[t] = {};
       const toAssign = Math.min(pax, available);
-      const prevSeats = bookings[t][safeName]?.seats || 0;
-      bookings[t][safeName] = {
-        seats: prevSeats + toAssign,
-        timestamp: Date.now()
-      };
+      bookings[t][safeName] = (bookings[t][safeName] || 0) + toAssign;
       seatsTaken[t] = taken + toAssign;
       assignedTables.push(t);
       pax -= toAssign;
@@ -554,28 +521,6 @@ function autoAllocateTable(name, pax) {
   return assignedTables;
 }
 
-  // Put this right after autoAllocateTable function
-function cleanupOldBookings() {
-  const now = Date.now();
-  const THIRTY_FIVE_MINUTES = 35 * 60 * 1000;
-  let changed = false;
-
-  for (const tableNum in bookings) {
-    for (const nameKey in bookings[tableNum]) {
-      const booking = bookings[tableNum][nameKey];
-      if (booking.timestamp && (now - booking.timestamp) > THIRTY_FIVE_MINUTES) {
-        seatsTaken[tableNum] -= booking.seats;
-        delete bookings[tableNum][nameKey];
-        changed = true;
-      }
-    }
-  }
-
-  if (changed) {
-    saveData();
-    refreshTables();
-  }
-}
 
   autoBookBtn.addEventListener("click", () => {
     const rawName = autoNameSelect.value.trim();
@@ -681,9 +626,5 @@ function cleanupOldBookings() {
 
   // Initial refresh
   refreshTables();
-
-setInterval(cleanupOldBookings, 60 * 1000); // runs cleanup every 1 minute
-
 });
-
 
