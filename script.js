@@ -90,6 +90,17 @@ document.addEventListener('DOMContentLoaded', () => {
     seatCapacity[i] = [16, 17, 18].includes(i) ? 36 : 30;
   }
 
+  const ZONES = {
+  left: [15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28],
+  right: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
+};
+
+function getZone(tableNumber) {
+  if (ZONES.left.includes(parseInt(tableNumber))) return 'left';
+  if (ZONES.right.includes(parseInt(tableNumber))) return 'right';
+  return null;
+}
+
   const bookingsRef = ref(db, 'bookings');
   const seatsTakenRef = ref(db, 'seatsTaken');
   const presetNamesRef = ref(db, 'presetNames');
@@ -356,7 +367,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // AUTO ALLOCATION LOGIC
-  function autoAllocateTable(name, pax) {
+  function autoAllocateTable(name, pax, preferredZone = null) {
   const safeName = sanitizeKey(name);
 
   // Clear previous booking for this name
@@ -367,10 +378,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  const tablesByCapacity = [];
+let tablesByCapacity = [];
+if (preferredZone && ZONES[preferredZone]) {
+  tablesByCapacity = ZONES[preferredZone];
+} else {
   for (let i = 1; i <= 28; i++) {
     tablesByCapacity.push(i);
   }
+}
 
   let assignedTables = [];
 
@@ -627,4 +642,5 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initial refresh
   refreshTables();
 });
+
 
