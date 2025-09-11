@@ -441,14 +441,21 @@ document.addEventListener('DOMContentLoaded', () => {
     remainingPax -= tryAssignToTable(firstTable, remainingPax);
 
     // 4. Assign remaining pax to other tables in same section (partial first, then empty)
-    const sectionTables = chosenSection === 1 ? section1 : section2;
+const sectionTables = chosenSection === 1 ? section1 : section2;
 
-    for (const t of sectionTables) {
-      if (remainingPax === 0) break;
-      if (t === firstTable) continue; // already assigned
+// Exclude partially/full occupied tables 16–18 from further allocation
+const safeSectionTables = sectionTables.filter((t) => {
+  if ([16, 17, 18].includes(t)) {
+    return seatsTaken[t] === 0; // Only allow if completely empty
+  }
+  return true;
+});
 
-      remainingPax -= tryAssignToTable(t, remainingPax);
-    }
+for (const t of safeSectionTables) {
+  if (remainingPax === 0) break;
+  if (t === firstTable) continue; // already assigned
+  remainingPax -= tryAssignToTable(t, remainingPax);
+}
 
     if (remainingPax > 0) {
       alert(`Only partially seated squad (${pax - remainingPax}/${pax}). Not enough space in one section.`);
@@ -584,4 +591,5 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initial refresh
   refreshTables();
 });
+
 
