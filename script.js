@@ -356,7 +356,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // AUTO ALLOCATION LOGIC
   function autoAllocateTable(name, pax) {
   const safeName = sanitizeKey(name);
-    
+
   // 1. Clear existing bookings for this name
   for (const tableNum in bookings) {
     if (bookings[tableNum][safeName]) {
@@ -469,21 +469,18 @@ for (const t of safeSectionTables) {
   // === NON-SQUAD LOGIC ===
 
   // 1. Try partially filled tables with enough space
-for (let i = 1; i <= 28; i++) {
-  const capacity = seatCapacity[i];
-  const taken = seatsTaken[i] || 0;
-  const available = capacity - taken;
+  for (let i = 1; i <= 28; i++) {
+    const capacity = seatCapacity[i];
+    const taken = seatsTaken[i] || 0;
+    const available = capacity - taken;
 
-  // ⛔ Skip partially filled large tables
-  if ([16, 17, 18].includes(i) && taken > 0) continue;
-
-  if (available >= pax) {
-    tryAssignToTable(i, pax);
-    saveData();
-    refreshTables();
-    return [i];
+    if (available >= pax) {
+      tryAssignToTable(i, pax);
+      saveData();
+      refreshTables();
+      return [i];
+    }
   }
-}
 
   // 2. Try empty tables with enough space
   for (let i = 1; i <= 28; i++) {
@@ -499,18 +496,10 @@ for (let i = 1; i <= 28; i++) {
   }
 
   // 3. As last resort, split across multiple tables
-  // 3. As last resort, split across multiple tables (but skip partially filled large tables)
-for (let i = 1; i <= 28; i++) {
-  if (remainingPax === 0) break;
-
-  const isLarge = [16, 17, 18].includes(i);
-  const taken = seatsTaken[i] || 0;
-
-  // Skip partially filled large tables
-  if (isLarge && taken > 0) continue;
-
-  remainingPax -= tryAssignToTable(i, remainingPax);
-}
+  for (let i = 1; i <= 28; i++) {
+    if (remainingPax === 0) break;
+    remainingPax -= tryAssignToTable(i, remainingPax);
+  }
 
   if (remainingPax > 0) {
     alert(`Only partially seated (${pax - remainingPax}/${pax}).`);
@@ -602,7 +591,4 @@ for (let i = 1; i <= 28; i++) {
   // Initial refresh
   refreshTables();
 });
-
-
-
 
