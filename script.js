@@ -373,8 +373,15 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!bigTables.includes(i)) otherTables.push(i);
     }
 
-    const tablesByCapacity = pax >= 31 ? bigTables.concat(otherTables) : otherTables.concat(bigTables);
+    let tablesByCapacity;
+if (pax >= 31) {
+  const usableBigTables = bigTables.filter(t => (seatsTaken[t] || 0) === 0); // Only empty big tables
+  tablesByCapacity = usableBigTables.concat(otherTables);
+} else {
+  tablesByCapacity = otherTables.concat(bigTables);
+}
 
+    
     let assignedTables = [];
 
     // Try to fit pax in already partially filled table(s)
@@ -576,4 +583,5 @@ if (pax >= 31) {
   // Initial refresh
   refreshTables();
 });
+
 
