@@ -355,26 +355,27 @@ document.addEventListener('DOMContentLoaded', () => {
     bookingModal.style.display = "none";
   });
 
-  // Auto Table Allocation
+  // AUTO ALLOCATION LOGIC
   function autoAllocateTable(name, pax) {
-  const safeName = sanitizeKey(name);
-
-  // Clear previous booking for this name
-  for (const tableNum in bookings) {
-    if (bookings[tableNum][safeName]) {
-      seatsTaken[tableNum] -= bookings[tableNum][safeName];
-      delete bookings[tableNum][safeName];
+    const safeName = sanitizeKey(name);
+    // Clear previous booking of this name first
+    for (const tableNum in bookings) {
+      if (bookings[tableNum][safeName]) {
+        seatsTaken[tableNum] -= bookings[tableNum][safeName];
+        delete bookings[tableNum][safeName];
+      }
     }
-  }
 
-  // No priority — treat all tables equally
-  const tablesByCapacity = [];
-  for (let i = 1; i <= 28; i++) {
-    tablesByCapacity.push(i);
-  }
+    // 1) If pax >=31, try to seat in tables 16-18 first with enough capacity
+    const bigTables = [16, 17, 18];
+    const otherTables = [];
+    for (let i = 1; i <= 28; i++) {
+      if (!bigTables.includes(i)) otherTables.push(i);
+    }
 
-  let assignedTables = [];
+    const tablesByCapacity = pax >= 31 ? bigTables.concat(otherTables) : otherTables.concat(bigTables);
 
+    let assignedTables = [];
 
     // Try to fit pax in already partially filled table(s)
     for (const t of tablesByCapacity) {
