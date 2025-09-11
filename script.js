@@ -400,6 +400,29 @@ document.addEventListener('DOMContentLoaded', () => {
       return assignedTables;
     }
 
+    // NEW: If pax >= 31 and big tables couldn't accommodate
+if (pax >= 31) {
+  // Try completely empty tables from otherTables (1–15, 19–28)
+  for (const t of otherTables) {
+    const taken = seatsTaken[t] || 0;
+    const capacity = seatCapacity[t];
+    if (taken === 0 && capacity >= pax) {
+      if (!bookings[t]) bookings[t] = {};
+      bookings[t][safeName] = pax;
+      seatsTaken[t] = pax;
+      assignedTables.push(t);
+      pax = 0;
+      break;
+    }
+  }
+
+  if (pax === 0) {
+    saveData();
+    refreshTables();
+    return assignedTables;
+  }
+}
+    
     // If can't fit into one partially filled table,
     // If pax <=30, assign full empty table (don't merge with partial table)
     if (pax <= 30) {
@@ -553,3 +576,4 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initial refresh
   refreshTables();
 });
+
