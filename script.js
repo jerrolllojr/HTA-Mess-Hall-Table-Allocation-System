@@ -238,11 +238,14 @@ for (const [name, booking] of Object.entries(tableBookings)) {
       exitButton.disabled = true;
     } else {
       names.forEach(name => {
-        const option = document.createElement("option");
-        option.value = name;
-        option.textContent = `${name} (${bookings[tableNumber][name]} seats)`;
-        exitNameSelect.appendChild(option);
-      });
+  const booking = bookings[tableNumber][name];
+  const seats = typeof booking === 'object' ? booking.seats : booking;
+  const option = document.createElement("option");
+  option.value = name;
+  option.textContent = `${name} (${seats} seats)`;
+  exitNameSelect.appendChild(option);
+});
+
       exitNameSelect.disabled = false;
       exitButton.disabled = false;
     }
@@ -682,4 +685,5 @@ function cleanupOldBookings() {
 setInterval(cleanupOldBookings, 60 * 1000); // runs cleanup every 1 minute
 
 });
+
 
