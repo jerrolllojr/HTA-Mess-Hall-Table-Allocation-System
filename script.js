@@ -109,25 +109,14 @@ document.addEventListener('DOMContentLoaded', () => {
       presetNames = presetNamesSnap.exists() ? presetNamesSnap.val() : [];
 
       // Sanitize keys from database
-for (const table in bookings) {
-  const newTable = {};
-  for (const rawName in bookings[table]) {
-    const safeKey = sanitizeKey(rawName);
-    const booking = bookings[table][rawName];
-
-    if (typeof booking === 'number') {
-      // Upgrade legacy format to new format
-      newTable[safeKey] = {
-        seats: booking,
-        timestamp: Date.now()
-      };
-    } else if (typeof booking === 'object' && booking !== null) {
-      // Already in correct format
-      newTable[safeKey] = booking;
-    }
-  }
-  bookings[table] = newTable;
-}
+      for (const table in bookings) {
+        const newTable = {};
+        for (const rawName in bookings[table]) {
+          const safeKey = sanitizeKey(rawName);
+          newTable[safeKey] = bookings[table][rawName];
+        }
+        bookings[table] = newTable;
+      }
 
       for (let i = 1; i <= 28; i++) {
         if (!(i in seatsTaken)) seatsTaken[i] = 0;
@@ -355,12 +344,14 @@ for (const table in bookings) {
     }
 
     if (!bookings[selectedTableNumber]) bookings[selectedTableNumber] = {};
+    bookings[selectedTableNumber][name] = seats;
 bookings[selectedTableNumber][name] = {
   seats: seats,
   timestamp: Date.now()
 };
 seatsTaken[selectedTableNumber] = newTotal;
 
+    seatsTaken[selectedTableNumber] = newTotal;
 
     saveData();
     refreshTables();
@@ -369,6 +360,7 @@ seatsTaken[selectedTableNumber] = newTotal;
     bookingModal.style.display = "none";
   });
 
+  function autoAllocateTable(name, pax) {
 // AUTO ALLOCATION LOGIC  
 function autoAllocateTable(name, pax) {
   const safeName = sanitizeKey(name);
@@ -376,6 +368,7 @@ function autoAllocateTable(name, pax) {
   // Clear previous booking for this name
   for (const tableNum in bookings) {
     if (bookings[tableNum][safeName]) {
+      seatsTaken[tableNum] -= bookings[tableNum][safeName];
       seatsTaken[tableNum] -= bookings[tableNum][safeName].seats;  // Use .seats here!
       delete bookings[tableNum][safeName];
     }
@@ -396,6 +389,7 @@ function autoAllocateTable(name, pax) {
       const taken = seatsTaken[t] || 0;
       if (taken === 0 && capacity >= pax) {
         if (!bookings[t]) bookings[t] = {};
+        bookings[t][safeName] = pax;
         bookings[t][safeName] = {
           seats: pax,
           timestamp: Date.now()
@@ -441,6 +435,7 @@ function autoAllocateTable(name, pax) {
 
       // Empty table
       if (!bookings[emptyTable]) bookings[emptyTable] = {};
+      bookings[emptyTable][safeName] = assignToEmpty;
       bookings[emptyTable][safeName] = {
         seats: assignToEmpty,
         timestamp: Date.now()
@@ -450,6 +445,7 @@ function autoAllocateTable(name, pax) {
 
       // Partially filled table
       if (!bookings[partialTable]) bookings[partialTable] = {};
+      bookings[partialTable][safeName] = assignToPartial;
       const prevSeats = bookings[partialTable][safeName]?.seats || 0;
       bookings[partialTable][safeName] = {
         seats: prevSeats + assignToPartial,
@@ -475,6 +471,7 @@ function autoAllocateTable(name, pax) {
       if (available > 0) {
         if (!bookings[t]) bookings[t] = {};
         const toAssign = Math.min(pax, available);
+        bookings[t][safeName] = (bookings[t][safeName] || 0) + toAssign;
         const prevSeats = bookings[t][safeName]?.seats || 0;
         bookings[t][safeName] = {
           seats: prevSeats + toAssign,
@@ -501,6 +498,7 @@ function autoAllocateTable(name, pax) {
 
     if (available >= pax) {
       if (!bookings[t]) bookings[t] = {};
+      bookings[t][safeName] = pax;
       bookings[t][safeName] = {
         seats: pax,
         timestamp: Date.now()
@@ -520,6 +518,7 @@ function autoAllocateTable(name, pax) {
     const taken = seatsTaken[t] || 0;
     if (taken === 0 && capacity >= pax) {
       if (!bookings[t]) bookings[t] = {};
+      bookings[t][safeName] = pax;
       bookings[t][safeName] = {
         seats: pax,
         timestamp: Date.now()
@@ -544,6 +543,7 @@ function autoAllocateTable(name, pax) {
     if (available > 0) {
       if (!bookings[t]) bookings[t] = {};
       const toAssign = Math.min(pax, available);
+      bookings[t][safeName] = (bookings[t][safeName] || 0) + toAssign;
       const prevSeats = bookings[t][safeName]?.seats || 0;
       bookings[t][safeName] = {
         seats: prevSeats + toAssign,
@@ -691,7 +691,3 @@ function cleanupOldBookings() {
 setInterval(cleanupOldBookings, 60 * 1000); // runs cleanup every 1 minute
 
 });
-
-
-
-
