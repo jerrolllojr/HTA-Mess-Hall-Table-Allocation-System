@@ -378,14 +378,14 @@ function getZone(tableNumber) {
     }
   }
 
-let tablesByCapacity = [];
-if (preferredZone && ZONES[preferredZone]) {
-  tablesByCapacity = ZONES[preferredZone];
-} else {
-  for (let i = 1; i <= 28; i++) {
-    tablesByCapacity.push(i);
+  let tablesByCapacity = [];
+  if (preferredZone && ZONES[preferredZone]) {
+    tablesByCapacity = ZONES[preferredZone];
+  } else {
+    for (let i = 1; i <= 28; i++) {
+      tablesByCapacity.push(i);
+    }
   }
-}
 
   let assignedTables = [];
 
@@ -400,14 +400,13 @@ if (preferredZone && ZONES[preferredZone]) {
         bookings[t][safeName] = pax;
         seatsTaken[t] = pax;
         assignedTables.push(t);
-        pax = 0;
         saveData();
         refreshTables();
         return assignedTables;
       }
     }
 
-    // Step 2: Try combining one empty table and one partially filled table
+    // Step 2: Try combining one empty + one partially filled
     let emptyTable = null;
     let partialTable = null;
     let emptyCapacity = 0;
@@ -433,32 +432,30 @@ if (preferredZone && ZONES[preferredZone]) {
     }
 
     if (emptyTable && partialTable && (emptyCapacity + partialAvailable >= pax)) {
-      // Assign pax to empty and partial table
       const assignToEmpty = Math.min(pax, emptyCapacity);
       const assignToPartial = pax - assignToEmpty;
 
-      // Empty table
       if (!bookings[emptyTable]) bookings[emptyTable] = {};
       bookings[emptyTable][safeName] = assignToEmpty;
       seatsTaken[emptyTable] = assignToEmpty;
       assignedTables.push(emptyTable);
 
-      // Partially filled table
       if (!bookings[partialTable]) bookings[partialTable] = {};
       bookings[partialTable][safeName] = assignToPartial;
       seatsTaken[partialTable] += assignToPartial;
       assignedTables.push(partialTable);
-
-      pax = 0;
 
       saveData();
       refreshTables();
       return assignedTables;
     }
 
-    // Step 3: Fallback — split across multiple tables
+    // Step 3: Fallback — split across multiple tables (max 2)
+    let tablesUsed = 0;
+
     for (const t of tablesByCapacity) {
       if (pax === 0) break;
+
       const capacity = seatCapacity[t];
       const taken = seatsTaken[t] || 0;
       const available = capacity - taken;
@@ -466,10 +463,23 @@ if (preferredZone && ZONES[preferredZone]) {
       if (available > 0) {
         if (!bookings[t]) bookings[t] = {};
         const toAssign = Math.min(pax, available);
+
         bookings[t][safeName] = (bookings[t][safeName] || 0) + toAssign;
         seatsTaken[t] = taken + toAssign;
         assignedTables.push(t);
         pax -= toAssign;
+        tablesUsed++;
+
+        if (tablesUsed > 2) {
+          // Revert all
+          for (const assigned of assignedTables) {
+            seatsTaken[assigned] -= bookings[assigned][safeName];
+            delete bookings[assigned][safeName];
+          }
+          alert("Cannot allocate more than 2 tables for this squad.");
+          refreshTables();
+          return [];
+        }
       }
     }
 
@@ -491,7 +501,6 @@ if (preferredZone && ZONES[preferredZone]) {
       bookings[t][safeName] = pax;
       seatsTaken[t] = taken + pax;
       assignedTables.push(t);
-      pax = 0;
       saveData();
       refreshTables();
       return assignedTables;
@@ -507,14 +516,15 @@ if (preferredZone && ZONES[preferredZone]) {
       bookings[t][safeName] = pax;
       seatsTaken[t] = pax;
       assignedTables.push(t);
-      pax = 0;
       saveData();
       refreshTables();
       return assignedTables;
     }
   }
 
-  // Step 3: Fallback — split across multiple tables
+  // Step 3: Fallback — split across up to 2 tables
+  let tablesUsed = 0;
+
   for (const t of tablesByCapacity) {
     if (pax === 0) break;
 
@@ -525,10 +535,22 @@ if (preferredZone && ZONES[preferredZone]) {
     if (available > 0) {
       if (!bookings[t]) bookings[t] = {};
       const toAssign = Math.min(pax, available);
+
       bookings[t][safeName] = (bookings[t][safeName] || 0) + toAssign;
       seatsTaken[t] = taken + toAssign;
       assignedTables.push(t);
       pax -= toAssign;
+      tablesUsed++;
+
+      if (tablesUsed > 2) {
+        for (const assigned of assignedTables) {
+          seatsTaken[assigned] -= bookings[assigned][safeName];
+          delete bookings[assigned][safeName];
+        }
+        alert("Cannot allocate more than 2 tables for this squad.");
+        refreshTables();
+        return [];
+      }
     }
   }
 
@@ -536,6 +558,7 @@ if (preferredZone && ZONES[preferredZone]) {
   refreshTables();
   return assignedTables;
 }
+  
   
   autoBookBtn.addEventListener("click", () => {
     const rawName = autoNameSelect.value.trim();
@@ -642,5 +665,6 @@ if (preferredZone && ZONES[preferredZone]) {
   // Initial refresh
   refreshTables();
 });
+
 
 
