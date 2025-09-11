@@ -176,10 +176,12 @@ document.addEventListener('DOMContentLoaded', () => {
         table.classList.add("partial");
       }
 
-      let namesText = "";
-      for (const [name, seats] of Object.entries(tableBookings)) {
-        namesText += `${name} (${seats})\n`;
-      }
+let namesText = "";
+for (const [name, booking] of Object.entries(tableBookings)) {
+  const seats = typeof booking === 'object' ? booking.seats : booking;
+  namesText += `${name} (${seats})\n`;
+}
+
 
       table.innerHTML = `Table ${i}<br />${taken}/${totalSeats}` +
         (namesText ? `<br /><small style="white-space: pre-wrap;">${namesText.trim()}</small>` : "");
@@ -680,3 +682,4 @@ function cleanupOldBookings() {
 setInterval(cleanupOldBookings, 60 * 1000); // runs cleanup every 1 minute
 
 });
+
