@@ -357,6 +357,15 @@ document.addEventListener('DOMContentLoaded', () => {
   function autoAllocateTable(name, pax) {
   const safeName = sanitizeKey(name);
 
+  // 🔒 Block if all tables are full
+  const totalCapacity = Object.entries(seatCapacity).reduce((sum, [table, cap]) => sum + cap, 0);
+  const totalTaken = Object.values(seatsTaken).reduce((sum, taken) => sum + taken, 0);
+
+if (totalTaken >= totalCapacity) {
+  alert("All tables are fully occupied. No further allocations possible.");
+  return [];
+}
+    
   // 1. Clear existing bookings for this name
   for (const tableNum in bookings) {
     if (bookings[tableNum][safeName]) {
@@ -469,18 +478,21 @@ for (const t of safeSectionTables) {
   // === NON-SQUAD LOGIC ===
 
   // 1. Try partially filled tables with enough space
-  for (let i = 1; i <= 28; i++) {
-    const capacity = seatCapacity[i];
-    const taken = seatsTaken[i] || 0;
-    const available = capacity - taken;
+for (let i = 1; i <= 28; i++) {
+  const capacity = seatCapacity[i];
+  const taken = seatsTaken[i] || 0;
+  const available = capacity - taken;
 
-    if (available >= pax) {
-      tryAssignToTable(i, pax);
-      saveData();
-      refreshTables();
-      return [i];
-    }
+  // ⛔ Skip partially filled large tables
+  if ([16, 17, 18].includes(i) && taken > 0) continue;
+
+  if (available >= pax) {
+    tryAssignToTable(i, pax);
+    saveData();
+    refreshTables();
+    return [i];
   }
+}
 
   // 2. Try empty tables with enough space
   for (let i = 1; i <= 28; i++) {
@@ -496,10 +508,18 @@ for (const t of safeSectionTables) {
   }
 
   // 3. As last resort, split across multiple tables
-  for (let i = 1; i <= 28; i++) {
-    if (remainingPax === 0) break;
-    remainingPax -= tryAssignToTable(i, remainingPax);
-  }
+  // 3. As last resort, split across multiple tables (but skip partially filled large tables)
+for (let i = 1; i <= 28; i++) {
+  if (remainingPax === 0) break;
+
+  const isLarge = [16, 17, 18].includes(i);
+  const taken = seatsTaken[i] || 0;
+
+  // Skip partially filled large tables
+  if (isLarge && taken > 0) continue;
+
+  remainingPax -= tryAssignToTable(i, remainingPax);
+}
 
   if (remainingPax > 0) {
     alert(`Only partially seated (${pax - remainingPax}/${pax}).`);
@@ -591,5 +611,6 @@ for (const t of safeSectionTables) {
   // Initial refresh
   refreshTables();
 });
+
 
 
