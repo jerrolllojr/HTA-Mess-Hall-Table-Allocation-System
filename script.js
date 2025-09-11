@@ -356,15 +356,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // AUTO ALLOCATION LOGIC
   function autoAllocateTable(name, pax) {
   const safeName = sanitizeKey(name);
-
-  // 🔒 Block if all tables are full
-  const totalCapacity = Object.entries(seatCapacity).reduce((sum, [table, cap]) => sum + cap, 0);
-  const totalTaken = Object.values(seatsTaken).reduce((sum, taken) => sum + taken, 0);
-
-if (totalTaken >= totalCapacity) {
-  alert("All tables are fully occupied. No further allocations possible.");
-  return [];
-}
     
   // 1. Clear existing bookings for this name
   for (const tableNum in bookings) {
@@ -611,6 +602,7 @@ for (let i = 1; i <= 28; i++) {
   // Initial refresh
   refreshTables();
 });
+
 
 
 
