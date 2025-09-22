@@ -367,7 +367,7 @@ function getZone(tableNumber) {
   });
 
   // AUTO ALLOCATION LOGIC
-ffunction autoAllocateTable(name, pax, preferredZone = null) {
+function autoAllocateTable(name, pax, preferredZone = null) {
   const safeName = sanitizeKey(name);
 
   // Clear previous booking for this name
@@ -731,6 +731,7 @@ ffunction autoAllocateTable(name, pax, preferredZone = null) {
   // Initial refresh
   refreshTables();
 });
+
 
 
 
