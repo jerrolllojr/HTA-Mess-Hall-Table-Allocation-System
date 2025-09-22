@@ -137,6 +137,7 @@ function getZone(tableNumber) {
       populateNameSelect();
       populateAutoNameSelect();
       refreshTables();
+      updateSquadsPresent();
 
       autoBookBtn.disabled = false;
       manageNamesBtn.disabled = false;
@@ -148,6 +149,8 @@ function getZone(tableNumber) {
     bookings = snapshot.val() || {};
     refreshTables();
     updateExitSelectOnBookingsChange();
+    updateSquadsPresent();
+    
   });
 
   onValue(seatsTakenRef, (snapshot) => {
@@ -214,6 +217,27 @@ function getZone(tableNumber) {
     rightSide.appendChild(createColumn([8, 9, 10, 11, 12, 13, 14]));
   }
 
+  function updateSquadsPresent() {
+  const squadsPresentDiv = document.getElementById('squadsPresent');
+  const presentSquads = new Set();
+  
+  // Collect all names that have bookings
+  for (const tableNum in bookings) {
+    for (const name in bookings[tableNum]) {
+      if (bookings[tableNum][name] > 0) {
+        presentSquads.add(name);
+      }
+    }
+  }
+  
+  if (presentSquads.size === 0) {
+    squadsPresentDiv.textContent = "No squads present";
+  } else {
+    const squadsList = Array.from(presentSquads).sort().join(', ');
+    squadsPresentDiv.textContent = squadsList;
+  }
+}
+  
   function populateNameSelect() {
     nameSelect.innerHTML = "";
     presetNames.forEach(name => {
@@ -313,6 +337,7 @@ function getZone(tableNumber) {
       saveData();
       refreshTables();
       populateExitNameSelect(selectedTableNumber);
+      updateSquadsPresent();
 
       alert(`${rawName} has exited and their booking on Table ${selectedTableNumber} is removed.`);
     } else {
@@ -362,6 +387,7 @@ function getZone(tableNumber) {
     saveData();
     refreshTables();
     populateExitNameSelect(selectedTableNumber);
+    updateSquadsPresent();
 
     bookingModal.style.display = "none";
   });
@@ -722,6 +748,7 @@ function getZone(tableNumber) {
       }
       saveData();
       refreshTables();
+      updateSquadsPresent();
       alert("All bookings cleared.");
     }
   });
