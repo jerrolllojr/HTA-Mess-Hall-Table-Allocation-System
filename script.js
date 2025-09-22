@@ -259,7 +259,7 @@ function getZone(tableNumber) {
 
   function openBookingModal(tableNumber) {
     selectedTableNumber = tableNumber;
-    modalTableNumber.textContent = `Table ${tableNumber}`;
+    modalTableNumber.textContent = `${tableNumber}`;
     errorMessage.textContent = "";
     peopleInput.value = "";
 
@@ -743,6 +743,7 @@ function getZone(tableNumber) {
   // Initial refresh
   refreshTables();
 });
+
 
 
 
