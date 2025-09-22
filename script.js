@@ -767,7 +767,6 @@ function clearSquadsPresent() {
       }
       saveData();
       refreshTables();
-      updateSquadsPresent();
       clearSquadsPresent();
       alert("All bookings cleared.");
     }
@@ -790,6 +789,7 @@ function clearSquadsPresent() {
   // Initial refresh
   refreshTables();
 });
+
 
 
 
