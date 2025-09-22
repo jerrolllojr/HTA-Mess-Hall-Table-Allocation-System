@@ -219,23 +219,37 @@ function getZone(tableNumber) {
 
   function updateSquadsPresent() {
   const squadsPresentDiv = document.getElementById('squadsPresent');
-  const presentSquads = new Set();
   
-  // Collect all names that have bookings
-  for (const tableNum in bookings) {
-    for (const name in bookings[tableNum]) {
-      if (bookings[tableNum][name] > 0) {
-        presentSquads.add(name);
-      }
+  // Get squads from a separate Firebase reference
+  const squadsPresentRef = ref(db, 'squadsPresent');
+  get(squadsPresentRef).then((snapshot) => {
+    const squadsPresent = snapshot.exists() ? snapshot.val() : [];
+    
+    if (squadsPresent.length === 0) {
+      squadsPresentDiv.textContent = "No squads present";
+    } else {
+      squadsPresentDiv.textContent = squadsPresent.sort().join(', ');
     }
-  }
-  
-  if (presentSquads.size === 0) {
-    squadsPresentDiv.textContent = "No squads present";
-  } else {
-    const squadsList = Array.from(presentSquads).sort().join(', ');
-    squadsPresentDiv.textContent = squadsList;
-  }
+  });
+}
+
+function addSquadToPresent(squadName) {
+  const squadsPresentRef = ref(db, 'squadsPresent');
+  get(squadsPresentRef).then((snapshot) => {
+    const squadsPresent = snapshot.exists() ? snapshot.val() : [];
+    
+    if (!squadsPresent.includes(squadName)) {
+      squadsPresent.push(squadName);
+      set(squadsPresentRef, squadsPresent);
+      updateSquadsPresent();
+    }
+  });
+}
+
+function clearSquadsPresent() {
+  const squadsPresentRef = ref(db, 'squadsPresent');
+  set(squadsPresentRef, []);
+  updateSquadsPresent();
 }
   
   function populateNameSelect() {
@@ -388,6 +402,7 @@ function getZone(tableNumber) {
     refreshTables();
     populateExitNameSelect(selectedTableNumber);
     updateSquadsPresent();
+    addSquadToPresent(rawName);
 
     bookingModal.style.display = "none";
   });
@@ -430,6 +445,7 @@ function getZone(tableNumber) {
           assignedTables.push(t);
           saveData();
           refreshTables();
+          addSquadToPresent(name);
           return assignedTables;
         }
       }
@@ -483,6 +499,7 @@ function getZone(tableNumber) {
 
         saveData();
         refreshTables();
+        addSquadToPresent(name);
         return assignedTables;
       }
 
@@ -546,6 +563,7 @@ function getZone(tableNumber) {
         if (remainingPax === 0) {
           saveData();
           refreshTables();
+          addSquadToPresent(name);
           return assignedTables;
         } else {
           // If we couldn't fit within 3 tables, check if it's theoretically possible
@@ -578,6 +596,7 @@ function getZone(tableNumber) {
           assignedTables.push(t);
           saveData();
           refreshTables();
+          addSquadToPresent(name);
           return assignedTables;
         }
       }
@@ -749,6 +768,7 @@ function getZone(tableNumber) {
       saveData();
       refreshTables();
       updateSquadsPresent();
+      clearSquadsPresent();
       alert("All bookings cleared.");
     }
   });
@@ -770,6 +790,7 @@ function getZone(tableNumber) {
   // Initial refresh
   refreshTables();
 });
+
 
 
 
