@@ -612,6 +612,7 @@ function clearSquadsPresent() {
           assignedTables.push(t);
           saveData();
           refreshTables();
+          addSquadToPresent(name);
           return assignedTables;
         }
       }
@@ -672,6 +673,7 @@ function clearSquadsPresent() {
         if (remainingPax === 0) {
           saveData();
           refreshTables();
+          addSquadToPresent(name);
           return assignedTables;
         }
       }
@@ -789,6 +791,7 @@ function clearSquadsPresent() {
   // Initial refresh
   refreshTables();
 });
+
 
 
 
