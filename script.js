@@ -432,9 +432,102 @@ function clearSquadsPresent() {
     let assignedTables = [];
     let remainingPax = pax;
 
-    // === Big group logic (pax >= 30) within this zone
+      // === Big group logic (pax >= 30) within this zone
     if (pax >= 30) {
-      // Step 1: Try one empty table with capacity >= pax
+      // Step 1: Prioritize tables 16-18 for groups of 31-36 pax
+      if (pax >= 31 && pax <= 36) {
+        const priorityTables = [16, 17, 18].filter(t => tablesByCapacity.includes(t));
+        
+        for (const t of priorityTables) {
+          const capacity = seatCapacity[t]; // Should be 36
+          const taken = seatsTaken[t] || 0;
+          if (taken === 0) {
+            if (!bookings[t]) bookings[t] = {};
+            bookings[t][safeName] = pax;
+            seatsTaken[t] = pax;
+            assignedTables.push(t);
+            saveData();
+            refreshTables();
+            addSquadToPresent(name);
+            return assignedTables;
+          }
+        }
+      }
+
+      // Step 2: For groups > 36 pax, use smart allocation (empty table + spill)
+      if (pax > 36) {
+        // Get empty tables in this zone, prioritizing 36-seat tables
+        const emptyTables36 = tablesByCapacity.filter(t => {
+          const capacity = seatCapacity[t];
+          const taken = seatsTaken[t] || 0;
+          return taken === 0 && capacity === 36;
+        });
+        
+        const emptyTables30 = tablesByCapacity.filter(t => {
+          const capacity = seatCapacity[t];
+          const taken = seatsTaken[t] || 0;
+          return taken === 0 && capacity === 30;
+        });
+        
+        // Try 36-seat tables first, then 30-seat tables
+        for (const primaryTable of [...emptyTables36, ...emptyTables30]) {
+          const primaryCapacity = seatCapacity[primaryTable];
+          const spillPax = pax - primaryCapacity;
+          
+          // Find a table for the spill - prefer partially filled tables first
+          let spillTable = null;
+          
+          // First try partially filled tables with enough space
+          for (const t of tablesByCapacity) {
+            if (t === primaryTable) continue;
+            const capacity = seatCapacity[t];
+            const taken = seatsTaken[t] || 0;
+            const available = capacity - taken;
+            
+            if (taken > 0 && available >= spillPax) {
+              spillTable = t;
+              break;
+            }
+          }
+          
+          // If no partially filled table, try empty tables
+          if (!spillTable) {
+            for (const t of tablesByCapacity) {
+              if (t === primaryTable) continue;
+              const capacity = seatCapacity[t];
+              const taken = seatsTaken[t] || 0;
+              
+              if (taken === 0 && capacity >= spillPax) {
+                spillTable = t;
+                break;
+              }
+            }
+          }
+          
+          // If we found both tables, allocate
+          if (spillTable) {
+            // Assign to primary table
+            if (!bookings[primaryTable]) bookings[primaryTable] = {};
+            bookings[primaryTable][safeName] = primaryCapacity;
+            seatsTaken[primaryTable] = primaryCapacity;
+            assignedTables.push(primaryTable);
+            
+            // Assign spill to second table
+            if (!bookings[spillTable]) bookings[spillTable] = {};
+            const currentTaken = seatsTaken[spillTable] || 0;
+            bookings[spillTable][safeName] = spillPax;
+            seatsTaken[spillTable] = currentTaken + spillPax;
+            assignedTables.push(spillTable);
+            
+            saveData();
+            refreshTables();
+            addSquadToPresent(name);
+            return assignedTables;
+          }
+        }
+      }
+
+      // Step 3: Try one empty table with capacity >= pax (fallback for <= 36 pax or when Step 2 fails)
       for (const t of tablesByCapacity) {
         const capacity = seatCapacity[t];
         const taken = seatsTaken[t] || 0;
@@ -450,7 +543,7 @@ function clearSquadsPresent() {
         }
       }
 
-      // Step 2: Try combining one empty + one partially filled within zone
+      // Step 4: Try combining one empty + one partially filled within zone
       let bestEmptyTable = null;
       let bestPartialTable = null;
       let bestEmptyCapacity = 0;
@@ -503,7 +596,7 @@ function clearSquadsPresent() {
         return assignedTables;
       }
 
-      // Step 3: Multi-table allocation with 3-table limit
+      // Step 5: Multi-table allocation with 3-table limit
       // Check if this zone has enough total capacity
       let totalAvailable = 0;
       for (const t of tablesByCapacity) {
@@ -580,7 +673,7 @@ function clearSquadsPresent() {
         }
       }
     }
-
+      
     // === Small group logic (pax < 30) within this zone - no changes needed as they typically use 1-2 tables
     else {
       // Step 1: Try partially filled table with enough space
@@ -791,6 +884,7 @@ function clearSquadsPresent() {
   // Initial refresh
   refreshTables();
 });
+
 
 
 
