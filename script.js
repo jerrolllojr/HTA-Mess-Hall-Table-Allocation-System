@@ -849,19 +849,20 @@ if (emptyTablesWithCapacity.length > 0) {
     manageNamesModal.style.display = "block";
   });
 
-  addNameBtn.addEventListener("click", () => {
-    const newName = newNameInput.value.trim();
-    if (newName && !presetNames.includes(newName)) {
-      presetNames.push(newName);
-      saveData();
-      populateNameSelect();
-      populateAutoNameSelect();
-      newNameInput.value = "";
-      alert(`Added name: ${newName}`);
-    } else {
-      alert("Enter a valid and unique name.");
-    }
-  });
+ addNameBtn.addEventListener("click", () => {
+  const newName = newNameInput.value.trim();
+  if (newName && !presetNames.includes(newName)) {
+    presetNames.push(newName);
+    presetNames.sort((a, b) => a.localeCompare(b)); // Sort alphabetically after adding
+    saveData();
+    populateNameSelect();
+    populateAutoNameSelect();
+    newNameInput.value = "";
+    alert(`Added name: ${newName}`);
+  } else {
+    alert("Enter a valid and unique name.");
+  }
+});
 
   saveNamesBtn.addEventListener("click", () => {
     manageNamesModal.style.display = "none";
@@ -903,6 +904,7 @@ if (emptyTablesWithCapacity.length > 0) {
   // Initial refresh
   refreshTables();
 });
+
 
 
 
