@@ -256,8 +256,8 @@ function clearSquadsPresent() {
     nameSelect.innerHTML = "";
 
     // Sort the preset names alphabetically before adding them
-    presetNames.sort((a, b) => a.localeCompare(b)); // This sorts alphabetically
-
+  presetNames.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+    
     presetNames.forEach(name => {
         const option = document.createElement("option");
         option.value = name;
@@ -271,8 +271,8 @@ function clearSquadsPresent() {
     autoNameSelect.innerHTML = "";
 
     // Sort the preset names alphabetically before adding them
-    presetNames.sort((a, b) => a.localeCompare(b)); // This sorts alphabetically
-
+presetNames.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+    
     presetNames.forEach(name => {
         const option = document.createElement("option");
         option.value = name;
@@ -853,8 +853,7 @@ if (emptyTablesWithCapacity.length > 0) {
   const newName = newNameInput.value.trim();
   if (newName && !presetNames.includes(newName)) {
     presetNames.push(newName);
-    presetNames.sort((a, b) => a.localeCompare(b)); // Sort alphabetically after adding
-    saveData();
+    presetNames.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
     populateNameSelect();
     populateAutoNameSelect();
     newNameInput.value = "";
@@ -904,6 +903,7 @@ if (emptyTablesWithCapacity.length > 0) {
   // Initial refresh
   refreshTables();
 });
+
 
 
 
