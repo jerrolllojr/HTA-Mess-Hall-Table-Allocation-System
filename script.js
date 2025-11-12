@@ -849,13 +849,15 @@ if (emptyTablesWithCapacity.length > 0) {
     manageNamesModal.style.display = "block";
   });
 
- addNameBtn.addEventListener("click", () => {
+addNameBtn.addEventListener("click", () => {
   const newName = newNameInput.value.trim();
   if (newName && !presetNames.includes(newName)) {
     presetNames.push(newName);
     presetNames.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
-    populateNameSelect();
-    populateAutoNameSelect();
+    
+    // Save only the presetNames to Firebase
+    set(presetNamesRef, presetNames).catch(console.error);
+    
     newNameInput.value = "";
     alert(`Added name: ${newName}`);
   } else {
