@@ -254,23 +254,33 @@ function clearSquadsPresent() {
   
   function populateNameSelect() {
     nameSelect.innerHTML = "";
+
+    // Sort the preset names alphabetically before adding them
+    presetNames.sort((a, b) => a.localeCompare(b)); // This sorts alphabetically
+
     presetNames.forEach(name => {
-      const option = document.createElement("option");
-      option.value = name;
-      option.textContent = name;
-      nameSelect.appendChild(option);
+        const option = document.createElement("option");
+        option.value = name;
+        option.textContent = name;
+        nameSelect.appendChild(option);
     });
-  }
+}
+
 
   function populateAutoNameSelect() {
     autoNameSelect.innerHTML = "";
+
+    // Sort the preset names alphabetically before adding them
+    presetNames.sort((a, b) => a.localeCompare(b)); // This sorts alphabetically
+
     presetNames.forEach(name => {
-      const option = document.createElement("option");
-      option.value = name;
-      option.textContent = name;
-      autoNameSelect.appendChild(option);
+        const option = document.createElement("option");
+        option.value = name;
+        option.textContent = name;
+        autoNameSelect.appendChild(option);
     });
-  }
+}
+
 
   // Populate exitNameSelect ONLY for the selected table bookings
   function populateExitNameSelect(tableNumber) {
@@ -893,6 +903,7 @@ if (emptyTablesWithCapacity.length > 0) {
   // Initial refresh
   refreshTables();
 });
+
 
 
 
