@@ -694,22 +694,31 @@ function clearSquadsPresent() {
         }
       }
 
-      // Step 2: Try empty table with enough capacity
-      for (const t of tablesByCapacity) {
-        const capacity = seatCapacity[t];
-        const taken = seatsTaken[t] || 0;
-        if (taken === 0 && capacity >= pax) {
-          if (!bookings[t]) bookings[t] = {};
-          bookings[t][safeName] = pax;
-          seatsTaken[t] = pax;
-          assignedTables.push(t);
-          saveData();
-          refreshTables();
-          addSquadToPresent(name);
-          return assignedTables;
-        }
-      }
+    // Step 2: Try empty table with enough capacity (prefer smaller tables first)
+const emptyTablesWithCapacity = [];
+for (const t of tablesByCapacity) {
+  const capacity = seatCapacity[t];
+  const taken = seatsTaken[t] || 0;
+  if (taken === 0 && capacity >= pax) {
+    emptyTablesWithCapacity.push({table: t, capacity});
+  }
+}
 
+// Sort by capacity ascending (smallest suitable table first)
+emptyTablesWithCapacity.sort((a, b) => a.capacity - b.capacity);
+
+if (emptyTablesWithCapacity.length > 0) {
+  const t = emptyTablesWithCapacity[0].table;
+  if (!bookings[t]) bookings[t] = {};
+  bookings[t][safeName] = pax;
+  seatsTaken[t] = pax;
+  assignedTables.push(t);
+  saveData();
+  refreshTables();
+  addSquadToPresent(name);
+  return assignedTables;
+}
+      
       // Step 3: Multi-table allocation for small groups (limited to 3 tables)
       let totalAvailable = 0;
       for (const t of tablesByCapacity) {
@@ -884,6 +893,7 @@ function clearSquadsPresent() {
   // Initial refresh
   refreshTables();
 });
+
 
 
 
