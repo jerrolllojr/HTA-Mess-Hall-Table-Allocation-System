@@ -433,7 +433,7 @@ function clearSquadsPresent() {
     let remainingPax = pax;
 
       // === Big group logic (pax >= 30) within this zone
-    if (pax >= 30) {
+    if (pax > 30) {
       // Step 1: Prioritize tables 16-18 for groups of 31-36 pax
       if (pax >= 31 && pax <= 36) {
         const priorityTables = [16, 17, 18].filter(t => tablesByCapacity.includes(t));
@@ -893,6 +893,7 @@ if (emptyTablesWithCapacity.length > 0) {
   // Initial refresh
   refreshTables();
 });
+
 
 
 
