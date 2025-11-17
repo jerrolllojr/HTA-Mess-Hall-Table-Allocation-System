@@ -448,27 +448,27 @@ presetNames.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensit
     let assignedTables = [];
     let remainingPax = pax;
 
-      // === Big group logic (pax >= 30) within this zone
-    if (pax > 30) {
-      // Step 1: Prioritize tables 16-18 for groups of 31-36 pax
-      if (pax >= 31 && pax <= 36) {
-        const priorityTables = [16, 17, 18].filter(t => tablesByCapacity.includes(t));
-        
-        for (const t of priorityTables) {
-          const capacity = seatCapacity[t]; // Should be 36
-          const taken = seatsTaken[t] || 0;
-          if (taken === 0) {
-            if (!bookings[t]) bookings[t] = {};
-            bookings[t][safeName] = pax;
-            seatsTaken[t] = pax;
-            assignedTables.push(t);
-            saveData();
-            refreshTables();
-            addSquadToPresent(name);
-            return assignedTables;
-          }
-        }
+   // === Big group logic (pax > 30) within this zone
+if (pax > 30) {
+  // Step 1: Prioritize tables 15-18 for groups of 31-42 pax
+  if (pax >= 31 && pax <= 42) {
+    const priorityTables = [15, 16, 17, 18].filter(t => tablesByCapacity.includes(t));
+    
+    for (const t of priorityTables) {
+      const capacity = seatCapacity[t]; // Should be 36 for tables 15,16,17 and 42 for table 18
+      const taken = seatsTaken[t] || 0;
+      if (taken === 0 && capacity >= pax) {
+        if (!bookings[t]) bookings[t] = {};
+        bookings[t][safeName] = pax;
+        seatsTaken[t] = pax;
+        assignedTables.push(t);
+        saveData();
+        refreshTables();
+        addSquadToPresent(name);
+        return assignedTables;
       }
+    }
+  }
 
       // Step 2: For groups > 36 pax, use smart allocation (empty table + spill)
       if (pax > 36) {
@@ -911,5 +911,6 @@ addNameBtn.addEventListener("click", () => {
   // Initial refresh
   refreshTables();
 });
+
 
 
