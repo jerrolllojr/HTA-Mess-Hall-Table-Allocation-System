@@ -448,14 +448,22 @@ presetNames.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensit
     let assignedTables = [];
     let remainingPax = pax;
 
-   // === Big group logic (pax > 30) within this zone
+ // === Big group logic (pax > 30) within this zone
 if (pax > 30) {
-  // Step 1: Prioritize tables 15-18 for groups of 31-42 pax
+  // Step 1: Prioritize specific tables based on group size
   if (pax >= 31 && pax <= 42) {
-    const priorityTables = [15, 16, 17, 18].filter(t => tablesByCapacity.includes(t));
+    let priorityTables = [];
+    
+    if (pax >= 37 && pax <= 42) {
+      // For 37-42 pax, prioritize table 18 (42 capacity)
+      priorityTables = [18].filter(t => tablesByCapacity.includes(t));
+    } else if (pax >= 31 && pax <= 36) {
+      // For 31-36 pax, prioritize tables 15, 16, 17 (36 capacity each)
+      priorityTables = [15, 16, 17].filter(t => tablesByCapacity.includes(t));
+    }
     
     for (const t of priorityTables) {
-      const capacity = seatCapacity[t]; // Should be 36 for tables 15,16,17 and 42 for table 18
+      const capacity = seatCapacity[t];
       const taken = seatsTaken[t] || 0;
       if (taken === 0 && capacity >= pax) {
         if (!bookings[t]) bookings[t] = {};
@@ -911,6 +919,7 @@ addNameBtn.addEventListener("click", () => {
   // Initial refresh
   refreshTables();
 });
+
 
 
 
