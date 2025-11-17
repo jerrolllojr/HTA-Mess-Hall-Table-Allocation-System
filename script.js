@@ -87,10 +87,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
 const seatCapacity = {};
 for (let i = 1; i <= 28; i++) {
-  if ([15, 16, 17].includes(i)) {
-    seatCapacity[i] = 36;
-  } else if (i === 18) {
+  if (i === 18) {
     seatCapacity[i] = 42;
+  } else if ([15, 16, 17].includes(i)) {
+    seatCapacity[i] = 36;
   } else {
     seatCapacity[i] = 30;
   }
@@ -449,21 +449,33 @@ presetNames.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensit
     let remainingPax = pax;
 
       // === Big group logic (pax >= 30) within this zone
-if (pax >= 30) {
-  // Step 1: Prioritize specific tables based on group size
+    if (pax > 30) {
+      // Step 1: Prioritize tables 16-18 for groups of 31-36 pax
+      if (pax >= 31 && pax <= 36) {
+        const priorityTables = [16, 17, 18].filter(t => tablesByCapacity.includes(t));
+        
+        for (const t of priorityTables) {
+          const capacity = seatCapacity[t]; // Should be 36
+          const taken = seatsTaken[t] || 0;
+          if (taken === 0) {
+            if (!bookings[t]) bookings[t] = {};
+            bookings[t][safeName] = pax;
+            seatsTaken[t] = pax;
+            assignedTables.push(t);
+            saveData();
+            refreshTables();
+            addSquadToPresent(name);
+            return assignedTables;
+          }
+        }
+   // === Big group logic (pax > 30) within this zone
+if (pax > 30) {
+  // Step 1: Prioritize tables 15-18 for groups of 31-42 pax
   if (pax >= 31 && pax <= 42) {
-    let priorityTables = [];
-    
-    if (pax >= 37 && pax <= 42) {
-      // For 37-42 pax, prioritize table 18 (42 capacity)
-      priorityTables = [18].filter(t => tablesByCapacity.includes(t));
-    } else if (pax >= 31 && pax <= 36) {
-      // For 31-36 pax, prioritize tables 15, 16, 17 (36 capacity each)
-      priorityTables = [15, 16, 17].filter(t => tablesByCapacity.includes(t));
-    }
+    const priorityTables = [15, 16, 17, 18].filter(t => tablesByCapacity.includes(t));
     
     for (const t of priorityTables) {
-      const capacity = seatCapacity[t];
+      const capacity = seatCapacity[t]; // Should be 36 for tables 15,16,17 and 42 for table 18
       const taken = seatsTaken[t] || 0;
       if (taken === 0 && capacity >= pax) {
         if (!bookings[t]) bookings[t] = {};
@@ -863,18 +875,15 @@ if (emptyTablesWithCapacity.length > 0) {
     manageNamesModal.style.display = "block";
   });
 
- addNameBtn.addEventListener("click", () => {
 addNameBtn.addEventListener("click", () => {
   const newName = newNameInput.value.trim();
   if (newName && !presetNames.includes(newName)) {
     presetNames.push(newName);
     presetNames.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
-    populateNameSelect();
-    populateAutoNameSelect();
-    
+
     // Save only the presetNames to Firebase
     set(presetNamesRef, presetNames).catch(console.error);
-    
+
     newNameInput.value = "";
     alert(`Added name: ${newName}`);
   } else {
@@ -922,6 +931,3 @@ addNameBtn.addEventListener("click", () => {
   // Initial refresh
   refreshTables();
 });
-
-
-~
