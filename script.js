@@ -156,7 +156,7 @@ function getZone(tableNumber) {
     refreshTables();
     updateExitSelectOnBookingsChange();
     updateSquadsPresent();
-    
+
   });
 
   onValue(seatsTakenRef, (snapshot) => {
@@ -225,12 +225,12 @@ function getZone(tableNumber) {
 
   function updateSquadsPresent() {
   const squadsPresentDiv = document.getElementById('squadsPresent');
-  
+
   // Get squads from a separate Firebase reference
   const squadsPresentRef = ref(db, 'squadsPresent');
   get(squadsPresentRef).then((snapshot) => {
     const squadsPresent = snapshot.exists() ? snapshot.val() : [];
-    
+
     if (squadsPresent.length === 0) {
       squadsPresentDiv.textContent = "No squads present";
     } else {
@@ -243,7 +243,7 @@ function addSquadToPresent(squadName) {
   const squadsPresentRef = ref(db, 'squadsPresent');
   get(squadsPresentRef).then((snapshot) => {
     const squadsPresent = snapshot.exists() ? snapshot.val() : [];
-    
+
     if (!squadsPresent.includes(squadName)) {
       squadsPresent.push(squadName);
       set(squadsPresentRef, squadsPresent);
@@ -257,13 +257,13 @@ function clearSquadsPresent() {
   set(squadsPresentRef, []);
   updateSquadsPresent();
 }
-  
+
   function populateNameSelect() {
     nameSelect.innerHTML = "";
 
     // Sort the preset names alphabetically before adding them
   presetNames.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
-    
+
     presetNames.forEach(name => {
         const option = document.createElement("option");
         option.value = name;
@@ -278,7 +278,7 @@ function clearSquadsPresent() {
 
     // Sort the preset names alphabetically before adding them
 presetNames.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
-    
+
     presetNames.forEach(name => {
         const option = document.createElement("option");
         option.value = name;
@@ -423,7 +423,7 @@ presetNames.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensit
     bookingModal.style.display = "none";
   });
 
- function autoAllocateTable(name, pax, preferredZone = null) {
+  function autoAllocateTable(name, pax, preferredZone = null) {
   const safeName = sanitizeKey(name);
 
   // Clear previous booking for this name
@@ -448,10 +448,13 @@ presetNames.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensit
     let assignedTables = [];
     let remainingPax = pax;
 
+   // === Big group logic (pax > 30) within this zone
  // === Big group logic (pax > 30) within this zone
 if (pax > 30) {
+  // Step 1: Prioritize tables 15-18 for groups of 31-42 pax
   // Step 1: Prioritize specific tables based on group size
   if (pax >= 31 && pax <= 42) {
+    const priorityTables = [15, 16, 17, 18].filter(t => tablesByCapacity.includes(t));
     let priorityTables = [];
     
     if (pax >= 37 && pax <= 42) {
@@ -461,8 +464,9 @@ if (pax > 30) {
       // For 31-36 pax, prioritize tables 15, 16, 17 (36 capacity each)
       priorityTables = [15, 16, 17].filter(t => tablesByCapacity.includes(t));
     }
-    
+
     for (const t of priorityTables) {
+      const capacity = seatCapacity[t]; // Should be 36 for tables 15,16,17 and 42 for table 18
       const capacity = seatCapacity[t];
       const taken = seatsTaken[t] || 0;
       if (taken === 0 && capacity >= pax) {
@@ -472,6 +476,7 @@ if (pax > 30) {
         assignedTables.push(t);
         saveData();
         refreshTables();
+        addSquadToPresent(name);
         return assignedTables;
       }
     }
@@ -485,48 +490,48 @@ if (pax > 30) {
           const taken = seatsTaken[t] || 0;
           return taken === 0 && capacity === 36;
         });
-        
+
         const emptyTables30 = tablesByCapacity.filter(t => {
           const capacity = seatCapacity[t];
           const taken = seatsTaken[t] || 0;
           return taken === 0 && capacity === 30;
         });
-        
+
         // Try 36-seat tables first, then 30-seat tables
         for (const primaryTable of [...emptyTables36, ...emptyTables30]) {
           const primaryCapacity = seatCapacity[primaryTable];
           const spillPax = pax - primaryCapacity;
-          
+
           // Find a table for the spill - prefer partially filled tables first
           let spillTable = null;
-          
+
           // First try partially filled tables with enough space
           for (const t of tablesByCapacity) {
             if (t === primaryTable) continue;
             const capacity = seatCapacity[t];
             const taken = seatsTaken[t] || 0;
             const available = capacity - taken;
-            
+
             if (taken > 0 && available >= spillPax) {
               spillTable = t;
               break;
             }
           }
-          
+
           // If no partially filled table, try empty tables
           if (!spillTable) {
             for (const t of tablesByCapacity) {
               if (t === primaryTable) continue;
               const capacity = seatCapacity[t];
               const taken = seatsTaken[t] || 0;
-              
+
               if (taken === 0 && capacity >= spillPax) {
                 spillTable = t;
                 break;
               }
             }
           }
-          
+
           // If we found both tables, allocate
           if (spillTable) {
             // Assign to primary table
@@ -534,16 +539,17 @@ if (pax > 30) {
             bookings[primaryTable][safeName] = primaryCapacity;
             seatsTaken[primaryTable] = primaryCapacity;
             assignedTables.push(primaryTable);
-            
+
             // Assign spill to second table
             if (!bookings[spillTable]) bookings[spillTable] = {};
             const currentTaken = seatsTaken[spillTable] || 0;
             bookings[spillTable][safeName] = spillPax;
             seatsTaken[spillTable] = currentTaken + spillPax;
             assignedTables.push(spillTable);
-            
+
             saveData();
             refreshTables();
+            addSquadToPresent(name);
             return assignedTables;
           }
         }
@@ -560,6 +566,7 @@ if (pax > 30) {
           assignedTables.push(t);
           saveData();
           refreshTables();
+          addSquadToPresent(name);
           return assignedTables;
         }
       }
@@ -613,6 +620,7 @@ if (pax > 30) {
 
         saveData();
         refreshTables();
+        addSquadToPresent(name);
         return assignedTables;
       }
 
@@ -633,34 +641,24 @@ if (pax > 30) {
         // Get available tables sorted by preference
         const emptyTables = [];
         const partialTables = [];
-        const lastResortTables = []; // For tables 15-18
-        
+
         for (const t of tablesByCapacity) {
           const capacity = seatCapacity[t];
           const taken = seatsTaken[t] || 0;
-          
           if (taken === 0) {
-            if ([15, 16, 17, 18].includes(t)) {
-              lastResortTables.push({table: t, capacity, available: capacity});
-            } else {
-              emptyTables.push({table: t, capacity, available: capacity});
-            }
+            emptyTables.push({table: t, capacity, available: capacity});
           } else if (taken > 0 && (capacity - taken) > 0) {
-            if ([15, 16, 17, 18].includes(t)) {
-              lastResortTables.push({table: t, capacity, available: capacity - taken});
-            } else {
-              partialTables.push({table: t, capacity, available: capacity - taken});
-            }
+            partialTables.push({table: t, capacity, available: capacity - taken});
           }
         }
 
-        // Sort tables by preference
+        // Sort empty tables by capacity (largest first)
         emptyTables.sort((a, b) => b.capacity - a.capacity);
+        // Sort partial tables by available space (largest first)
         partialTables.sort((a, b) => b.available - a.available);
-        lastResortTables.sort((a, b) => b.available - a.available);
 
-        // Combine tables: regular tables first, then last resort tables
-        const allAvailableTables = [...emptyTables, ...partialTables, ...lastResortTables];
+        // Combine all available tables, prioritizing empty tables
+        const allAvailableTables = [...emptyTables, ...partialTables];
 
         // Try to fit within 3 tables maximum
         let tablesUsed = 0;
@@ -668,12 +666,13 @@ if (pax > 30) {
 
         for (const {table: t, available} of allAvailableTables) {
           if (remainingPax === 0 || tablesUsed >= maxTables) break;
-          
+
           const toAssign = Math.min(remainingPax, available);
           if (!bookings[t]) bookings[t] = {};
-          
+
+          // Check if this is an empty table or partial table
           const currentTaken = seatsTaken[t] || 0;
-          
+
           bookings[t][safeName] = toAssign;
           seatsTaken[t] = currentTaken + toAssign;
           assignedTables.push(t);
@@ -685,6 +684,7 @@ if (pax > 30) {
         if (remainingPax === 0) {
           saveData();
           refreshTables();
+          addSquadToPresent(name);
           return assignedTables;
         } else {
           // If we couldn't fit within 3 tables, check if it's theoretically possible
@@ -693,7 +693,7 @@ if (pax > 30) {
           for (let i = 0; i < Math.min(3, allAvailableTables.length); i++) {
             maxCapacityWith3Tables += allAvailableTables[i].available;
           }
-          
+
           if (pax > maxCapacityWith3Tables) {
             // Cannot fit even with best 3 tables - reject allocation
             continue; // Try next zone
@@ -701,7 +701,7 @@ if (pax > 30) {
         }
       }
     }
-      
+
     // === Small group logic (pax < 30) within this zone - no changes needed as they typically use 1-2 tables
     else {
       // Step 1: Try partially filled table with enough space
@@ -717,6 +717,7 @@ if (pax > 30) {
           assignedTables.push(t);
           saveData();
           refreshTables();
+          addSquadToPresent(name);
           return assignedTables;
         }
       }
@@ -742,9 +743,10 @@ if (emptyTablesWithCapacity.length > 0) {
   assignedTables.push(t);
   saveData();
   refreshTables();
+  addSquadToPresent(name);
   return assignedTables;
 }
-      
+
       // Step 3: Multi-table allocation for small groups (limited to 3 tables)
       let totalAvailable = 0;
       for (const t of tablesByCapacity) {
@@ -759,26 +761,16 @@ if (emptyTablesWithCapacity.length > 0) {
 
         // Get available tables
         const availableTables = [];
-        const lastResortTables = []; // For tables 15-18
-        
         for (const t of tablesByCapacity) {
           const capacity = seatCapacity[t];
           const taken = seatsTaken[t] || 0;
           const available = capacity - taken;
           if (available > 0) {
-            if ([15, 16, 17, 18].includes(t)) {
-              lastResortTables.push({
-                table: t, 
-                available, 
-                isEmpty: taken === 0
-              });
-            } else {
-              availableTables.push({
-                table: t, 
-                available, 
-                isEmpty: taken === 0
-              });
-            }
+            availableTables.push({
+              table: t, 
+              available, 
+              isEmpty: taken === 0
+            });
           }
         }
 
@@ -788,26 +780,17 @@ if (emptyTablesWithCapacity.length > 0) {
           if (!a.isEmpty && b.isEmpty) return 1;
           return b.available - a.available;
         });
-        
-        lastResortTables.sort((a, b) => {
-          if (a.isEmpty && !b.isEmpty) return -1;
-          if (!a.isEmpty && b.isEmpty) return 1;
-          return b.available - a.available;
-        });
-
-        // Combine: regular tables first, then last resort tables
-        const allTables = [...availableTables, ...lastResortTables];
 
         // Allocate with 3-table limit
         let tablesUsed = 0;
         const maxTables = 3;
 
-        for (const {table: t, available} of allTables) {
+        for (const {table: t, available} of availableTables) {
           if (remainingPax === 0 || tablesUsed >= maxTables) break;
-          
+
           const toAssign = Math.min(remainingPax, available);
           const currentTaken = seatsTaken[t] || 0;
-          
+
           if (!bookings[t]) bookings[t] = {};
           bookings[t][safeName] = toAssign;
           seatsTaken[t] = currentTaken + toAssign;
@@ -820,6 +803,7 @@ if (emptyTablesWithCapacity.length > 0) {
         if (remainingPax === 0) {
           saveData();
           refreshTables();
+          addSquadToPresent(name);
           return assignedTables;
         }
       }
@@ -829,8 +813,8 @@ if (emptyTablesWithCapacity.length > 0) {
   // If we reach here, no zone could accommodate the booking within the 3-table limit
   return [];
 }
-  
-  
+
+
   autoBookBtn.addEventListener("click", () => {
     const rawName = autoNameSelect.value.trim();
     const pax = parseInt(autoPaxInput.value);
@@ -888,10 +872,10 @@ addNameBtn.addEventListener("click", () => {
   if (newName && !presetNames.includes(newName)) {
     presetNames.push(newName);
     presetNames.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
-    
+
     // Save only the presetNames to Firebase
     set(presetNamesRef, presetNames).catch(console.error);
-    
+
     newNameInput.value = "";
     alert(`Added name: ${newName}`);
   } else {
@@ -939,9 +923,3 @@ addNameBtn.addEventListener("click", () => {
   // Initial refresh
   refreshTables();
 });
-
-
-
-
-
-
