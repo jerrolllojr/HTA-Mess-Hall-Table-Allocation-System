@@ -923,24 +923,3 @@ addNameBtn.addEventListener("click", () => {
   refreshTables();
 });
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-~
