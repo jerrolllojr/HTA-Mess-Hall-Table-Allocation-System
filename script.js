@@ -423,7 +423,7 @@ presetNames.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensit
     bookingModal.style.display = "none";
   });
 
-  function autoAllocateTable(name, pax, preferredZone = null) {
+ function autoAllocateTable(name, pax, preferredZone = null) {
   const safeName = sanitizeKey(name);
 
   // Clear previous booking for this name
@@ -472,7 +472,6 @@ if (pax > 30) {
         assignedTables.push(t);
         saveData();
         refreshTables();
-        addSquadToPresent(name);
         return assignedTables;
       }
     }
@@ -545,7 +544,6 @@ if (pax > 30) {
             
             saveData();
             refreshTables();
-            addSquadToPresent(name);
             return assignedTables;
           }
         }
@@ -562,7 +560,6 @@ if (pax > 30) {
           assignedTables.push(t);
           saveData();
           refreshTables();
-          addSquadToPresent(name);
           return assignedTables;
         }
       }
@@ -616,74 +613,67 @@ if (pax > 30) {
 
         saveData();
         refreshTables();
-        addSquadToPresent(name);
         return assignedTables;
       }
 
-// Step 5: Multi-table allocation with 3-table limit
-// Check if this zone has enough total capacity
-let totalAvailable = 0;
-for (const t of tablesByCapacity) {
-  const capacity = seatCapacity[t];
-  const taken = seatsTaken[t] || 0;
-  totalAvailable += (capacity - taken);
-}
-
-// Only proceed with multi-table allocation if zone has enough capacity
-if (totalAvailable >= pax) {
-  assignedTables = [];
-  remainingPax = pax;
-
-  // Get available tables sorted by preference
-  const emptyTables = [];
-  const partialTables = [];
-  const lastResortTables = []; // For tables 15-18
-  
-  for (const t of tablesByCapacity) {
-    const capacity = seatCapacity[t];
-    const taken = seatsTaken[t] || 0;
-    
-    if (taken === 0) {
-      if ([15, 16, 17, 18].includes(t)) {
-        lastResortTables.push({table: t, capacity, available: capacity});
-      } else {
-        emptyTables.push({table: t, capacity, available: capacity});
+      // Step 5: Multi-table allocation with 3-table limit
+      // Check if this zone has enough total capacity
+      let totalAvailable = 0;
+      for (const t of tablesByCapacity) {
+        const capacity = seatCapacity[t];
+        const taken = seatsTaken[t] || 0;
+        totalAvailable += (capacity - taken);
       }
-    } else if (taken > 0 && (capacity - taken) > 0) {
-      if ([15, 16, 17, 18].includes(t)) {
-        lastResortTables.push({table: t, capacity, available: capacity - taken});
-      } else {
-        partialTables.push({table: t, capacity, available: capacity - taken});
-      }
-    }
-  }
 
-  // Sort tables by preference
-  emptyTables.sort((a, b) => b.capacity - a.capacity);
-  partialTables.sort((a, b) => b.available - a.available);
-  lastResortTables.sort((a, b) => b.available - a.available);
+      // Only proceed with multi-table allocation if zone has enough capacity
+      if (totalAvailable >= pax) {
+        assignedTables = [];
+        remainingPax = pax;
 
-  // Combine tables: regular tables first, then last resort tables
-  const allAvailableTables = [...emptyTables, ...partialTables, ...lastResortTables];
+        // Get available tables sorted by preference
+        const emptyTables = [];
+        const partialTables = [];
+        const lastResortTables = []; // For tables 15-18
+        
+        for (const t of tablesByCapacity) {
+          const capacity = seatCapacity[t];
+          const taken = seatsTaken[t] || 0;
+          
+          if (taken === 0) {
+            if ([15, 16, 17, 18].includes(t)) {
+              lastResortTables.push({table: t, capacity, available: capacity});
+            } else {
+              emptyTables.push({table: t, capacity, available: capacity});
+            }
+          } else if (taken > 0 && (capacity - taken) > 0) {
+            if ([15, 16, 17, 18].includes(t)) {
+              lastResortTables.push({table: t, capacity, available: capacity - taken});
+            } else {
+              partialTables.push({table: t, capacity, available: capacity - taken});
+            }
+          }
+        }
 
-  // Try to fit within 3 tables maximum
-  let tablesUsed = 0;
-  const maxTables = 3;
+        // Sort tables by preference
+        emptyTables.sort((a, b) => b.capacity - a.capacity);
+        partialTables.sort((a, b) => b.available - a.available);
+        lastResortTables.sort((a, b) => b.available - a.available);
 
-  for (const {table: t, available} of allAvailableTables) {
-    if (remainingPax === 0 || tablesUsed >= maxTables) break;
-    
-    const toAssign = Math.min(remainingPax, available);
-    if (!bookings[t]) bookings[t] = {};
-    
-    const currentTaken = seatsTaken[t] || 0;
-    
-    bookings[t][safeName] = toAssign;
-    seatsTaken[t] = currentTaken + toAssign;
-    assignedTables.push(t);
-    remainingPax -= toAssign;
-    tablesUsed++;
-  }
+        // Combine tables: regular tables first, then last resort tables
+        const allAvailableTables = [...emptyTables, ...partialTables, ...lastResortTables];
+
+        // Try to fit within 3 tables maximum
+        let tablesUsed = 0;
+        const maxTables = 3;
+
+        for (const {table: t, available} of allAvailableTables) {
+          if (remainingPax === 0 || tablesUsed >= maxTables) break;
+          
+          const toAssign = Math.min(remainingPax, available);
+          if (!bookings[t]) bookings[t] = {};
+          
+          const currentTaken = seatsTaken[t] || 0;
+          
           bookings[t][safeName] = toAssign;
           seatsTaken[t] = currentTaken + toAssign;
           assignedTables.push(t);
@@ -695,7 +685,6 @@ if (totalAvailable >= pax) {
         if (remainingPax === 0) {
           saveData();
           refreshTables();
-          addSquadToPresent(name);
           return assignedTables;
         } else {
           // If we couldn't fit within 3 tables, check if it's theoretically possible
@@ -728,7 +717,6 @@ if (totalAvailable >= pax) {
           assignedTables.push(t);
           saveData();
           refreshTables();
-          addSquadToPresent(name);
           return assignedTables;
         }
       }
@@ -754,86 +742,84 @@ if (emptyTablesWithCapacity.length > 0) {
   assignedTables.push(t);
   saveData();
   refreshTables();
-  addSquadToPresent(name);
   return assignedTables;
 }
       
-// Step 3: Multi-table allocation for small groups (limited to 3 tables)
-let totalAvailable = 0;
-for (const t of tablesByCapacity) {
-  const capacity = seatCapacity[t];
-  const taken = seatsTaken[t] || 0;
-  totalAvailable += (capacity - taken);
-}
-
-if (totalAvailable >= pax) {
-  assignedTables = [];
-  remainingPax = pax;
-
-  // Get available tables
-  const availableTables = [];
-  const lastResortTables = []; // For tables 15-18
-  
-  for (const t of tablesByCapacity) {
-    const capacity = seatCapacity[t];
-    const taken = seatsTaken[t] || 0;
-    const available = capacity - taken;
-    if (available > 0) {
-      if ([15, 16, 17, 18].includes(t)) {
-        lastResortTables.push({
-          table: t, 
-          available, 
-          isEmpty: taken === 0
-        });
-      } else {
-        availableTables.push({
-          table: t, 
-          available, 
-          isEmpty: taken === 0
-        });
+      // Step 3: Multi-table allocation for small groups (limited to 3 tables)
+      let totalAvailable = 0;
+      for (const t of tablesByCapacity) {
+        const capacity = seatCapacity[t];
+        const taken = seatsTaken[t] || 0;
+        totalAvailable += (capacity - taken);
       }
-    }
-  }
 
-  // Sort: empty tables first (by capacity desc), then partial tables (by available desc)
-  availableTables.sort((a, b) => {
-    if (a.isEmpty && !b.isEmpty) return -1;
-    if (!a.isEmpty && b.isEmpty) return 1;
-    return b.available - a.available;
-  });
-  
-  lastResortTables.sort((a, b) => {
-    if (a.isEmpty && !b.isEmpty) return -1;
-    if (!a.isEmpty && b.isEmpty) return 1;
-    return b.available - a.available;
-  });
+      if (totalAvailable >= pax) {
+        assignedTables = [];
+        remainingPax = pax;
 
-  // Combine: regular tables first, then last resort tables
-  const allTables = [...availableTables, ...lastResortTables];
+        // Get available tables
+        const availableTables = [];
+        const lastResortTables = []; // For tables 15-18
+        
+        for (const t of tablesByCapacity) {
+          const capacity = seatCapacity[t];
+          const taken = seatsTaken[t] || 0;
+          const available = capacity - taken;
+          if (available > 0) {
+            if ([15, 16, 17, 18].includes(t)) {
+              lastResortTables.push({
+                table: t, 
+                available, 
+                isEmpty: taken === 0
+              });
+            } else {
+              availableTables.push({
+                table: t, 
+                available, 
+                isEmpty: taken === 0
+              });
+            }
+          }
+        }
 
-  // Allocate with 3-table limit
-  let tablesUsed = 0;
-  const maxTables = 3;
+        // Sort: empty tables first (by capacity desc), then partial tables (by available desc)
+        availableTables.sort((a, b) => {
+          if (a.isEmpty && !b.isEmpty) return -1;
+          if (!a.isEmpty && b.isEmpty) return 1;
+          return b.available - a.available;
+        });
+        
+        lastResortTables.sort((a, b) => {
+          if (a.isEmpty && !b.isEmpty) return -1;
+          if (!a.isEmpty && b.isEmpty) return 1;
+          return b.available - a.available;
+        });
 
-  for (const {table: t, available} of allTables) {
-    if (remainingPax === 0 || tablesUsed >= maxTables) break;
-    
-    const toAssign = Math.min(remainingPax, available);
-    const currentTaken = seatsTaken[t] || 0;
-    
-    if (!bookings[t]) bookings[t] = {};
-    bookings[t][safeName] = toAssign;
-    seatsTaken[t] = currentTaken + toAssign;
-    assignedTables.push(t);
-    remainingPax -= toAssign;
-    tablesUsed++;
-  }
-  
+        // Combine: regular tables first, then last resort tables
+        const allTables = [...availableTables, ...lastResortTables];
+
+        // Allocate with 3-table limit
+        let tablesUsed = 0;
+        const maxTables = 3;
+
+        for (const {table: t, available} of allTables) {
+          if (remainingPax === 0 || tablesUsed >= maxTables) break;
+          
+          const toAssign = Math.min(remainingPax, available);
+          const currentTaken = seatsTaken[t] || 0;
+          
+          if (!bookings[t]) bookings[t] = {};
+          bookings[t][safeName] = toAssign;
+          seatsTaken[t] = currentTaken + toAssign;
+          assignedTables.push(t);
+          remainingPax -= toAssign;
+          tablesUsed++;
+        }
+
         // If successfully allocated all pax within this zone and table limit
         if (remainingPax === 0) {
           saveData();
           refreshTables();
-          addSquadToPresent(name);
           return assignedTables;
         }
       }
@@ -953,6 +939,7 @@ addNameBtn.addEventListener("click", () => {
   // Initial refresh
   refreshTables();
 });
+
 
 
 
