@@ -450,19 +450,26 @@ presetNames.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensit
     let remainingPax = pax;
 
       // === Big group logic (pax >= 30) within this zone
-    // Step 1: Prioritize high-capacity tables for groups that can fit in one table
-  if (pax >= 31 && pax <= 42) {
-  // Updated priority tables with new capacities
+// Step 1: Prioritize high-capacity tables for groups that can fit in one table
+if (pax >= 31 && pax <= 42) {
+  // Get priority tables available in this zone, ordered by capacity (highest first)
   const priorityTables = [];
   
-  // Add tables by capacity in descending order
-  if (tablesByCapacity.includes(18) && pax <= 42) priorityTables.push(18); // 42 seats
+  // Check for table 18 (42 seats) if pax <= 42 and it's in this zone
+  if (tablesByCapacity.includes(18) && pax <= 42) {
+    priorityTables.push(18);
+  }
+  
+  // Check for tables 15, 16, 17 (36 seats each) if pax <= 36 and they're in this zone
   if (pax <= 36) {
     [15, 16, 17].forEach(t => {
-      if (tablesByCapacity.includes(t)) priorityTables.push(t); // 36 seats each
+      if (tablesByCapacity.includes(t)) {
+        priorityTables.push(t);
+      }
     });
   }
   
+  // Try to allocate to priority tables
   for (const t of priorityTables) {
     const capacity = seatCapacity[t];
     const taken = seatsTaken[t] || 0;
@@ -919,6 +926,7 @@ addNameBtn.addEventListener("click", () => {
   // Initial refresh
   refreshTables();
 });
+
 
 
 
