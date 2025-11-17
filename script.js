@@ -85,16 +85,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.body.insertBefore(autoBookingContainer, document.querySelector('.hall-layout'));
 
-const seatCapacity = {};
-for (let i = 1; i <= 28; i++) {
-  if (i === 18) {
-    seatCapacity[i] = 42;
-  } else if ([15, 16, 17].includes(i)) {
-    seatCapacity[i] = 36;
-  } else {
-    seatCapacity[i] = 30;
+  const seatCapacity = {};
+  for (let i = 1; i <= 28; i++) {
+    seatCapacity[i] = [16, 17, 18].includes(i) ? 36 : 30;
   }
-}
 
   const ZONES = {
   left: [15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28],
@@ -453,7 +447,7 @@ presetNames.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensit
       // Step 1: Prioritize tables 16-18 for groups of 31-36 pax
       if (pax >= 31 && pax <= 36) {
         const priorityTables = [16, 17, 18].filter(t => tablesByCapacity.includes(t));
-        
+
         for (const t of priorityTables) {
           const capacity = seatCapacity[t]; // Should be 36
           const taken = seatsTaken[t] || 0;
@@ -468,27 +462,7 @@ presetNames.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensit
             return assignedTables;
           }
         }
-   // === Big group logic (pax > 30) within this zone
-if (pax > 30) {
-  // Step 1: Prioritize tables 15-18 for groups of 31-42 pax
-  if (pax >= 31 && pax <= 42) {
-    const priorityTables = [15, 16, 17, 18].filter(t => tablesByCapacity.includes(t));
-    
-    for (const t of priorityTables) {
-      const capacity = seatCapacity[t]; // Should be 36 for tables 15,16,17 and 42 for table 18
-      const taken = seatsTaken[t] || 0;
-      if (taken === 0 && capacity >= pax) {
-        if (!bookings[t]) bookings[t] = {};
-        bookings[t][safeName] = pax;
-        seatsTaken[t] = pax;
-        assignedTables.push(t);
-        saveData();
-        refreshTables();
-        addSquadToPresent(name);
-        return assignedTables;
       }
-    }
-  }
 
       // Step 2: For groups > 36 pax, use smart allocation (empty table + spill)
       if (pax > 36) {
@@ -875,15 +849,18 @@ if (emptyTablesWithCapacity.length > 0) {
     manageNamesModal.style.display = "block";
   });
 
+ addNameBtn.addEventListener("click", () => {
 addNameBtn.addEventListener("click", () => {
   const newName = newNameInput.value.trim();
   if (newName && !presetNames.includes(newName)) {
     presetNames.push(newName);
     presetNames.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
-
+    populateNameSelect();
+    populateAutoNameSelect();
+    
     // Save only the presetNames to Firebase
     set(presetNamesRef, presetNames).catch(console.error);
-
+    
     newNameInput.value = "";
     alert(`Added name: ${newName}`);
   } else {
@@ -931,3 +908,25 @@ addNameBtn.addEventListener("click", () => {
   // Initial refresh
   refreshTables();
 });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+~
