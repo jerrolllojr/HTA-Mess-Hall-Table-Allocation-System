@@ -85,17 +85,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.body.insertBefore(autoBookingContainer, document.querySelector('.hall-layout'));
 
- const seatCapacity = {};
-for (let i = 1; i <= 28; i++) {
-  if (i === 18) {
-    seatCapacity[i] = 42;
-  } else if ([15, 16, 17].includes(i)) {
-    seatCapacity[i] = 36;
-  } else {
-    seatCapacity[i] = 30;
+  const seatCapacity = {};
+  for (let i = 1; i <= 28; i++) {
+    seatCapacity[i] = [16, 17, 18].includes(i) ? 36 : 30;
   }
-}
-  
+
   const ZONES = {
   left: [15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28],
   right: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
@@ -143,6 +137,7 @@ function getZone(tableNumber) {
       populateNameSelect();
       populateAutoNameSelect();
       refreshTables();
+      updateSquadsPresent();
 
       autoBookBtn.disabled = false;
       manageNamesBtn.disabled = false;
@@ -154,6 +149,8 @@ function getZone(tableNumber) {
     bookings = snapshot.val() || {};
     refreshTables();
     updateExitSelectOnBookingsChange();
+    updateSquadsPresent();
+    
   });
 
   onValue(seatsTakenRef, (snapshot) => {
@@ -220,25 +217,70 @@ function getZone(tableNumber) {
     rightSide.appendChild(createColumn([8, 9, 10, 11, 12, 13, 14]));
   }
 
+  function updateSquadsPresent() {
+  const squadsPresentDiv = document.getElementById('squadsPresent');
+  
+  // Get squads from a separate Firebase reference
+  const squadsPresentRef = ref(db, 'squadsPresent');
+  get(squadsPresentRef).then((snapshot) => {
+    const squadsPresent = snapshot.exists() ? snapshot.val() : [];
+    
+    if (squadsPresent.length === 0) {
+      squadsPresentDiv.textContent = "No squads present";
+    } else {
+      squadsPresentDiv.textContent = squadsPresent.sort().join(', ');
+    }
+  });
+}
+
+function addSquadToPresent(squadName) {
+  const squadsPresentRef = ref(db, 'squadsPresent');
+  get(squadsPresentRef).then((snapshot) => {
+    const squadsPresent = snapshot.exists() ? snapshot.val() : [];
+    
+    if (!squadsPresent.includes(squadName)) {
+      squadsPresent.push(squadName);
+      set(squadsPresentRef, squadsPresent);
+      updateSquadsPresent();
+    }
+  });
+}
+
+function clearSquadsPresent() {
+  const squadsPresentRef = ref(db, 'squadsPresent');
+  set(squadsPresentRef, []);
+  updateSquadsPresent();
+}
+  
   function populateNameSelect() {
     nameSelect.innerHTML = "";
+
+    // Sort the preset names alphabetically before adding them
+  presetNames.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+    
     presetNames.forEach(name => {
-      const option = document.createElement("option");
-      option.value = name;
-      option.textContent = name;
-      nameSelect.appendChild(option);
+        const option = document.createElement("option");
+        option.value = name;
+        option.textContent = name;
+        nameSelect.appendChild(option);
     });
-  }
+}
+
 
   function populateAutoNameSelect() {
     autoNameSelect.innerHTML = "";
+
+    // Sort the preset names alphabetically before adding them
+presetNames.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+    
     presetNames.forEach(name => {
-      const option = document.createElement("option");
-      option.value = name;
-      option.textContent = name;
-      autoNameSelect.appendChild(option);
+        const option = document.createElement("option");
+        option.value = name;
+        option.textContent = name;
+        autoNameSelect.appendChild(option);
     });
-  }
+}
+
 
   // Populate exitNameSelect ONLY for the selected table bookings
   function populateExitNameSelect(tableNumber) {
@@ -319,6 +361,7 @@ function getZone(tableNumber) {
       saveData();
       refreshTables();
       populateExitNameSelect(selectedTableNumber);
+      updateSquadsPresent();
 
       alert(`${rawName} has exited and their booking on Table ${selectedTableNumber} is removed.`);
     } else {
@@ -368,6 +411,8 @@ function getZone(tableNumber) {
     saveData();
     refreshTables();
     populateExitNameSelect(selectedTableNumber);
+    updateSquadsPresent();
+    addSquadToPresent(rawName);
 
     bookingModal.style.display = "none";
   });
@@ -397,9 +442,102 @@ function getZone(tableNumber) {
     let assignedTables = [];
     let remainingPax = pax;
 
-    // === Big group logic (pax >= 30) within this zone
-    if (pax >= 30) {
-      // Step 1: Try one empty table with capacity >= pax
+      // === Big group logic (pax >= 30) within this zone
+    if (pax > 30) {
+      // Step 1: Prioritize tables 16-18 for groups of 31-36 pax
+      if (pax >= 31 && pax <= 36) {
+        const priorityTables = [16, 17, 18].filter(t => tablesByCapacity.includes(t));
+        
+        for (const t of priorityTables) {
+          const capacity = seatCapacity[t]; // Should be 36
+          const taken = seatsTaken[t] || 0;
+          if (taken === 0) {
+            if (!bookings[t]) bookings[t] = {};
+            bookings[t][safeName] = pax;
+            seatsTaken[t] = pax;
+            assignedTables.push(t);
+            saveData();
+            refreshTables();
+            addSquadToPresent(name);
+            return assignedTables;
+          }
+        }
+      }
+
+      // Step 2: For groups > 36 pax, use smart allocation (empty table + spill)
+      if (pax > 36) {
+        // Get empty tables in this zone, prioritizing 36-seat tables
+        const emptyTables36 = tablesByCapacity.filter(t => {
+          const capacity = seatCapacity[t];
+          const taken = seatsTaken[t] || 0;
+          return taken === 0 && capacity === 36;
+        });
+        
+        const emptyTables30 = tablesByCapacity.filter(t => {
+          const capacity = seatCapacity[t];
+          const taken = seatsTaken[t] || 0;
+          return taken === 0 && capacity === 30;
+        });
+        
+        // Try 36-seat tables first, then 30-seat tables
+        for (const primaryTable of [...emptyTables36, ...emptyTables30]) {
+          const primaryCapacity = seatCapacity[primaryTable];
+          const spillPax = pax - primaryCapacity;
+          
+          // Find a table for the spill - prefer partially filled tables first
+          let spillTable = null;
+          
+          // First try partially filled tables with enough space
+          for (const t of tablesByCapacity) {
+            if (t === primaryTable) continue;
+            const capacity = seatCapacity[t];
+            const taken = seatsTaken[t] || 0;
+            const available = capacity - taken;
+            
+            if (taken > 0 && available >= spillPax) {
+              spillTable = t;
+              break;
+            }
+          }
+          
+          // If no partially filled table, try empty tables
+          if (!spillTable) {
+            for (const t of tablesByCapacity) {
+              if (t === primaryTable) continue;
+              const capacity = seatCapacity[t];
+              const taken = seatsTaken[t] || 0;
+              
+              if (taken === 0 && capacity >= spillPax) {
+                spillTable = t;
+                break;
+              }
+            }
+          }
+          
+          // If we found both tables, allocate
+          if (spillTable) {
+            // Assign to primary table
+            if (!bookings[primaryTable]) bookings[primaryTable] = {};
+            bookings[primaryTable][safeName] = primaryCapacity;
+            seatsTaken[primaryTable] = primaryCapacity;
+            assignedTables.push(primaryTable);
+            
+            // Assign spill to second table
+            if (!bookings[spillTable]) bookings[spillTable] = {};
+            const currentTaken = seatsTaken[spillTable] || 0;
+            bookings[spillTable][safeName] = spillPax;
+            seatsTaken[spillTable] = currentTaken + spillPax;
+            assignedTables.push(spillTable);
+            
+            saveData();
+            refreshTables();
+            addSquadToPresent(name);
+            return assignedTables;
+          }
+        }
+      }
+
+      // Step 3: Try one empty table with capacity >= pax (fallback for <= 36 pax or when Step 2 fails)
       for (const t of tablesByCapacity) {
         const capacity = seatCapacity[t];
         const taken = seatsTaken[t] || 0;
@@ -410,11 +548,12 @@ function getZone(tableNumber) {
           assignedTables.push(t);
           saveData();
           refreshTables();
+          addSquadToPresent(name);
           return assignedTables;
         }
       }
 
-      // Step 2: Try combining one empty + one partially filled within zone
+      // Step 4: Try combining one empty + one partially filled within zone
       let bestEmptyTable = null;
       let bestPartialTable = null;
       let bestEmptyCapacity = 0;
@@ -463,10 +602,11 @@ function getZone(tableNumber) {
 
         saveData();
         refreshTables();
+        addSquadToPresent(name);
         return assignedTables;
       }
 
-      // Step 3: Multi-table allocation with 3-table limit
+      // Step 5: Multi-table allocation with 3-table limit
       // Check if this zone has enough total capacity
       let totalAvailable = 0;
       for (const t of tablesByCapacity) {
@@ -526,6 +666,7 @@ function getZone(tableNumber) {
         if (remainingPax === 0) {
           saveData();
           refreshTables();
+          addSquadToPresent(name);
           return assignedTables;
         } else {
           // If we couldn't fit within 3 tables, check if it's theoretically possible
@@ -542,7 +683,7 @@ function getZone(tableNumber) {
         }
       }
     }
-
+      
     // === Small group logic (pax < 30) within this zone - no changes needed as they typically use 1-2 tables
     else {
       // Step 1: Try partially filled table with enough space
@@ -558,25 +699,36 @@ function getZone(tableNumber) {
           assignedTables.push(t);
           saveData();
           refreshTables();
+          addSquadToPresent(name);
           return assignedTables;
         }
       }
 
-      // Step 2: Try empty table with enough capacity
-      for (const t of tablesByCapacity) {
-        const capacity = seatCapacity[t];
-        const taken = seatsTaken[t] || 0;
-        if (taken === 0 && capacity >= pax) {
-          if (!bookings[t]) bookings[t] = {};
-          bookings[t][safeName] = pax;
-          seatsTaken[t] = pax;
-          assignedTables.push(t);
-          saveData();
-          refreshTables();
-          return assignedTables;
-        }
-      }
+    // Step 2: Try empty table with enough capacity (prefer smaller tables first)
+const emptyTablesWithCapacity = [];
+for (const t of tablesByCapacity) {
+  const capacity = seatCapacity[t];
+  const taken = seatsTaken[t] || 0;
+  if (taken === 0 && capacity >= pax) {
+    emptyTablesWithCapacity.push({table: t, capacity});
+  }
+}
 
+// Sort by capacity ascending (smallest suitable table first)
+emptyTablesWithCapacity.sort((a, b) => a.capacity - b.capacity);
+
+if (emptyTablesWithCapacity.length > 0) {
+  const t = emptyTablesWithCapacity[0].table;
+  if (!bookings[t]) bookings[t] = {};
+  bookings[t][safeName] = pax;
+  seatsTaken[t] = pax;
+  assignedTables.push(t);
+  saveData();
+  refreshTables();
+  addSquadToPresent(name);
+  return assignedTables;
+}
+      
       // Step 3: Multi-table allocation for small groups (limited to 3 tables)
       let totalAvailable = 0;
       for (const t of tablesByCapacity) {
@@ -633,6 +785,7 @@ function getZone(tableNumber) {
         if (remainingPax === 0) {
           saveData();
           refreshTables();
+          addSquadToPresent(name);
           return assignedTables;
         }
       }
@@ -696,19 +849,21 @@ function getZone(tableNumber) {
     manageNamesModal.style.display = "block";
   });
 
-  addNameBtn.addEventListener("click", () => {
-    const newName = newNameInput.value.trim();
-    if (newName && !presetNames.includes(newName)) {
-      presetNames.push(newName);
-      saveData();
-      populateNameSelect();
-      populateAutoNameSelect();
-      newNameInput.value = "";
-      alert(`Added name: ${newName}`);
-    } else {
-      alert("Enter a valid and unique name.");
-    }
-  });
+addNameBtn.addEventListener("click", () => {
+  const newName = newNameInput.value.trim();
+  if (newName && !presetNames.includes(newName)) {
+    presetNames.push(newName);
+    presetNames.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+    
+    // Save only the presetNames to Firebase
+    set(presetNamesRef, presetNames).catch(console.error);
+    
+    newNameInput.value = "";
+    alert(`Added name: ${newName}`);
+  } else {
+    alert("Enter a valid and unique name.");
+  }
+});
 
   saveNamesBtn.addEventListener("click", () => {
     manageNamesModal.style.display = "none";
@@ -728,6 +883,7 @@ function getZone(tableNumber) {
       }
       saveData();
       refreshTables();
+      clearSquadsPresent();
       alert("All bookings cleared.");
     }
   });
@@ -749,5 +905,4 @@ function getZone(tableNumber) {
   // Initial refresh
   refreshTables();
 });
-
 
