@@ -85,10 +85,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.body.insertBefore(autoBookingContainer, document.querySelector('.hall-layout'));
 
-  const seatCapacity = {};
-  for (let i = 1; i <= 28; i++) {
-    seatCapacity[i] = [16, 17, 18].includes(i) ? 36 : 30;
+ const seatCapacity = {};
+for (let i = 1; i <= 28; i++) {
+  if (i === 18) {
+    seatCapacity[i] = 42;
+  } else if ([15, 16, 17].includes(i)) {
+    seatCapacity[i] = 36;
+  } else {
+    seatCapacity[i] = 30;
   }
+}
 
   const ZONES = {
   left: [15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28],
@@ -905,6 +911,7 @@ addNameBtn.addEventListener("click", () => {
   // Initial refresh
   refreshTables();
 });
+
 
 
 
