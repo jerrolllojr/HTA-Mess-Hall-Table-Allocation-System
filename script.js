@@ -423,7 +423,7 @@ presetNames.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensit
     bookingModal.style.display = "none";
   });
 
-function autoAllocateTable(name, pax, preferredZone = null) {
+  function autoAllocateTable(name, pax, preferredZone = null) {
   const safeName = sanitizeKey(name);
 
   // Clear previous booking for this name
@@ -450,8 +450,26 @@ function autoAllocateTable(name, pax, preferredZone = null) {
 
     // === Big group logic (pax >= 30) within this zone
     if (pax > 30) {
-      // Step 1: Prioritize table 18 for groups of 31-42 pax
-      if (pax >= 31 && pax <= 42) {
+      // Step 1: Handle groups of 31-36 pax - prioritize tables 15-17
+      if (pax >= 31 && pax <= 36) {
+        const preferredTables = [15, 16, 17].filter(t => tablesByCapacity.includes(t));
+        
+        for (const t of preferredTables) {
+          const capacity = seatCapacity[t]; // Should be 36
+          const taken = seatsTaken[t] || 0;
+          if (taken === 0) {
+            if (!bookings[t]) bookings[t] = {};
+            bookings[t][safeName] = pax;
+            seatsTaken[t] = pax;
+            assignedTables.push(t);
+            saveData();
+            refreshTables();
+            addSquadToPresent(name);
+            return assignedTables;
+          }
+        }
+        
+        // If tables 15-17 are not available, try table 18 as fallback
         const table18 = 18;
         if (tablesByCapacity.includes(table18)) {
           const capacity = seatCapacity[table18]; // Should be 42
@@ -467,29 +485,28 @@ function autoAllocateTable(name, pax, preferredZone = null) {
             return assignedTables;
           }
         }
-        
-        // If table 18 is not available, try tables 15-17 for groups that fit
-        if (pax <= 36) {
-          const fallbackTables = [15, 16, 17].filter(t => tablesByCapacity.includes(t));
-          
-          for (const t of fallbackTables) {
-            const capacity = seatCapacity[t]; // Should be 36
-            const taken = seatsTaken[t] || 0;
-            if (taken === 0) {
-              if (!bookings[t]) bookings[t] = {};
-              bookings[t][safeName] = pax;
-              seatsTaken[t] = pax;
-              assignedTables.push(t);
-              saveData();
-              refreshTables();
-              addSquadToPresent(name);
-              return assignedTables;
-            }
+      }
+
+      // Step 2: Handle groups of 37-42 pax - prioritize table 18
+      if (pax >= 37 && pax <= 42) {
+        const table18 = 18;
+        if (tablesByCapacity.includes(table18)) {
+          const capacity = seatCapacity[table18]; // Should be 42
+          const taken = seatsTaken[table18] || 0;
+          if (taken === 0) {
+            if (!bookings[table18]) bookings[table18] = {};
+            bookings[table18][safeName] = pax;
+            seatsTaken[table18] = pax;
+            assignedTables.push(table18);
+            saveData();
+            refreshTables();
+            addSquadToPresent(name);
+            return assignedTables;
           }
         }
       }
 
-      // Step 2: For groups > 42 pax, use smart allocation (empty table + spill)
+      // Step 3: For groups > 42 pax, use smart allocation (empty table + spill)
       if (pax > 42) {
         // Get empty tables in this zone, prioritizing 42-seat table first, then 36-seat tables
         const emptyTable42 = tablesByCapacity.filter(t => {
@@ -568,7 +585,7 @@ function autoAllocateTable(name, pax, preferredZone = null) {
         }
       }
 
-      // Step 3: Try one empty table with capacity >= pax (fallback for <= 42 pax or when Step 2 fails)
+      // Step 4: Try one empty table with capacity >= pax (fallback for all big groups)
       for (const t of tablesByCapacity) {
         const capacity = seatCapacity[t];
         const taken = seatsTaken[t] || 0;
@@ -584,7 +601,7 @@ function autoAllocateTable(name, pax, preferredZone = null) {
         }
       }
 
-      // Step 4: Try combining one empty + one partially filled within zone
+      // Step 5: Try combining one empty + one partially filled within zone
       let bestEmptyTable = null;
       let bestPartialTable = null;
       let bestEmptyCapacity = 0;
@@ -637,7 +654,7 @@ function autoAllocateTable(name, pax, preferredZone = null) {
         return assignedTables;
       }
 
-      // Step 5: Multi-table allocation with 3-table limit
+      // Step 6: Multi-table allocation with 3-table limit
       // Check if this zone has enough total capacity
       let totalAvailable = 0;
       for (const t of tablesByCapacity) {
@@ -935,6 +952,7 @@ addNameBtn.addEventListener("click", () => {
   // Initial refresh
   refreshTables();
 });
+
 
 
 
