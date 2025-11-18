@@ -423,7 +423,7 @@ presetNames.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensit
     bookingModal.style.display = "none";
   });
 
-  function autoAllocateTable(name, pax, preferredZone = null) {
+function autoAllocateTable(name, pax, preferredZone = null) {
   const safeName = sanitizeKey(name);
 
   // Clear previous booking for this name
@@ -448,31 +448,56 @@ presetNames.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensit
     let assignedTables = [];
     let remainingPax = pax;
 
-      // === Big group logic (pax >= 30) within this zone
+    // === Big group logic (pax >= 30) within this zone
     if (pax > 30) {
-      // Step 1: Prioritize tables 16-18 for groups of 31-36 pax
-      if (pax >= 31 && pax <= 36) {
-        const priorityTables = [16, 17, 18].filter(t => tablesByCapacity.includes(t));
-        
-        for (const t of priorityTables) {
-          const capacity = seatCapacity[t]; // Should be 36
-          const taken = seatsTaken[t] || 0;
+      // Step 1: Prioritize table 18 for groups of 31-42 pax
+      if (pax >= 31 && pax <= 42) {
+        const table18 = 18;
+        if (tablesByCapacity.includes(table18)) {
+          const capacity = seatCapacity[table18]; // Should be 42
+          const taken = seatsTaken[table18] || 0;
           if (taken === 0) {
-            if (!bookings[t]) bookings[t] = {};
-            bookings[t][safeName] = pax;
-            seatsTaken[t] = pax;
-            assignedTables.push(t);
+            if (!bookings[table18]) bookings[table18] = {};
+            bookings[table18][safeName] = pax;
+            seatsTaken[table18] = pax;
+            assignedTables.push(table18);
             saveData();
             refreshTables();
             addSquadToPresent(name);
             return assignedTables;
           }
         }
+        
+        // If table 18 is not available, try tables 15-17 for groups that fit
+        if (pax <= 36) {
+          const fallbackTables = [15, 16, 17].filter(t => tablesByCapacity.includes(t));
+          
+          for (const t of fallbackTables) {
+            const capacity = seatCapacity[t]; // Should be 36
+            const taken = seatsTaken[t] || 0;
+            if (taken === 0) {
+              if (!bookings[t]) bookings[t] = {};
+              bookings[t][safeName] = pax;
+              seatsTaken[t] = pax;
+              assignedTables.push(t);
+              saveData();
+              refreshTables();
+              addSquadToPresent(name);
+              return assignedTables;
+            }
+          }
+        }
       }
 
-      // Step 2: For groups > 36 pax, use smart allocation (empty table + spill)
-      if (pax > 36) {
-        // Get empty tables in this zone, prioritizing 36-seat tables
+      // Step 2: For groups > 42 pax, use smart allocation (empty table + spill)
+      if (pax > 42) {
+        // Get empty tables in this zone, prioritizing 42-seat table first, then 36-seat tables
+        const emptyTable42 = tablesByCapacity.filter(t => {
+          const capacity = seatCapacity[t];
+          const taken = seatsTaken[t] || 0;
+          return taken === 0 && capacity === 42;
+        });
+
         const emptyTables36 = tablesByCapacity.filter(t => {
           const capacity = seatCapacity[t];
           const taken = seatsTaken[t] || 0;
@@ -485,8 +510,8 @@ presetNames.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensit
           return taken === 0 && capacity === 30;
         });
         
-        // Try 36-seat tables first, then 30-seat tables
-        for (const primaryTable of [...emptyTables36, ...emptyTables30]) {
+        // Try 42-seat table first, then 36-seat tables, then 30-seat tables
+        for (const primaryTable of [...emptyTable42, ...emptyTables36, ...emptyTables30]) {
           const primaryCapacity = seatCapacity[primaryTable];
           const spillPax = pax - primaryCapacity;
           
@@ -543,7 +568,7 @@ presetNames.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensit
         }
       }
 
-      // Step 3: Try one empty table with capacity >= pax (fallback for <= 36 pax or when Step 2 fails)
+      // Step 3: Try one empty table with capacity >= pax (fallback for <= 42 pax or when Step 2 fails)
       for (const t of tablesByCapacity) {
         const capacity = seatCapacity[t];
         const taken = seatsTaken[t] || 0;
@@ -690,7 +715,7 @@ presetNames.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensit
       }
     }
       
-    // === Small group logic (pax < 30) within this zone - no changes needed as they typically use 1-2 tables
+    // === Small group logic (pax < 30) within this zone - no changes needed
     else {
       // Step 1: Try partially filled table with enough space
       for (const t of tablesByCapacity) {
@@ -710,31 +735,31 @@ presetNames.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensit
         }
       }
 
-    // Step 2: Try empty table with enough capacity (prefer smaller tables first)
-const emptyTablesWithCapacity = [];
-for (const t of tablesByCapacity) {
-  const capacity = seatCapacity[t];
-  const taken = seatsTaken[t] || 0;
-  if (taken === 0 && capacity >= pax) {
-    emptyTablesWithCapacity.push({table: t, capacity});
-  }
-}
+      // Step 2: Try empty table with enough capacity (prefer smaller tables first)
+      const emptyTablesWithCapacity = [];
+      for (const t of tablesByCapacity) {
+        const capacity = seatCapacity[t];
+        const taken = seatsTaken[t] || 0;
+        if (taken === 0 && capacity >= pax) {
+          emptyTablesWithCapacity.push({table: t, capacity});
+        }
+      }
 
-// Sort by capacity ascending (smallest suitable table first)
-emptyTablesWithCapacity.sort((a, b) => a.capacity - b.capacity);
+      // Sort by capacity ascending (smallest suitable table first)
+      emptyTablesWithCapacity.sort((a, b) => a.capacity - b.capacity);
 
-if (emptyTablesWithCapacity.length > 0) {
-  const t = emptyTablesWithCapacity[0].table;
-  if (!bookings[t]) bookings[t] = {};
-  bookings[t][safeName] = pax;
-  seatsTaken[t] = pax;
-  assignedTables.push(t);
-  saveData();
-  refreshTables();
-  addSquadToPresent(name);
-  return assignedTables;
-}
-      
+      if (emptyTablesWithCapacity.length > 0) {
+        const t = emptyTablesWithCapacity[0].table;
+        if (!bookings[t]) bookings[t] = {};
+        bookings[t][safeName] = pax;
+        seatsTaken[t] = pax;
+        assignedTables.push(t);
+        saveData();
+        refreshTables();
+        addSquadToPresent(name);
+        return assignedTables;
+      }
+        
       // Step 3: Multi-table allocation for small groups (limited to 3 tables)
       let totalAvailable = 0;
       for (const t of tablesByCapacity) {
@@ -801,7 +826,6 @@ if (emptyTablesWithCapacity.length > 0) {
   // If we reach here, no zone could accommodate the booking within the 3-table limit
   return [];
 }
-  
   
   autoBookBtn.addEventListener("click", () => {
     const rawName = autoNameSelect.value.trim();
@@ -911,6 +935,7 @@ addNameBtn.addEventListener("click", () => {
   // Initial refresh
   refreshTables();
 });
+
 
 
 
