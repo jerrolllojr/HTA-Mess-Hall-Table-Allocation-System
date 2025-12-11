@@ -122,7 +122,7 @@ get(adminPasswordRef).then((snapshot) => {
     ADMIN_PASSWORD = snapshot.val();
   } else {
     // Set initial password in Firebase
-    set(adminPasswordRef, "your_secure_password_here");
+    set(adminPasswordRef, "HomeTeam@501");
   }
 }).catch(console.error);
 
@@ -1003,6 +1003,7 @@ addNameBtn.addEventListener("click", () => {
   // Initial refresh
   refreshTables();
 });
+
 
 
 
