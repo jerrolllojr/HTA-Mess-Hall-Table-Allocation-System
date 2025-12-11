@@ -111,6 +111,45 @@ function getZone(tableNumber) {
   const seatsTakenRef = ref(db, 'seatsTaken');
   const presetNamesRef = ref(db, 'presetNames');
 
+const adminPasswordRef = ref(db, 'adminPassword');
+
+// Initialize admin password
+let ADMIN_PASSWORD = "default_password"; // Fallback password
+
+// Load password from Firebase on startup
+get(adminPasswordRef).then((snapshot) => {
+  if (snapshot.exists()) {
+    ADMIN_PASSWORD = snapshot.val();
+  } else {
+    // Set initial password in Firebase
+    set(adminPasswordRef, "your_secure_password_here");
+  }
+}).catch(console.error);
+
+async function verifyAdminPassword() {
+  try {
+    const snapshot = await get(adminPasswordRef);
+    const storedPassword = snapshot.exists() ? snapshot.val() : "default_password";
+    
+    const enteredPassword = prompt("Enter admin password:");
+    
+    if (enteredPassword === null) {
+      return false;
+    }
+    
+    if (enteredPassword === storedPassword) {
+      return true;
+    } else {
+      alert("Incorrect password. Access denied.");
+      return false;
+    }
+  } catch (error) {
+    console.error("Error verifying password:", error);
+    alert("Error verifying password. Please try again.");
+    return false;
+  }
+}
+  
   let bookings = {};
   let seatsTaken = {};
   let presetNames = [];
@@ -869,32 +908,38 @@ presetNames.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensit
   });
 
   // Manage Names modal logic, Clear All, etc.
-  manageNamesBtn.addEventListener("click", () => {
-    namesList.innerHTML = "";
-    presetNames.forEach(name => {
-      const li = document.createElement("li");
-      li.textContent = name;
+ manageNamesBtn.addEventListener("click", async () => {
+  const isAuthorized = await verifyAdminPassword();
+  
+  if (!isAuthorized) {
+    return;
+  }
+  
+  namesList.innerHTML = "";
+  presetNames.forEach(name => {
+    const li = document.createElement("li");
+    li.textContent = name;
 
-      const deleteBtn = document.createElement("button");
-      deleteBtn.textContent = "Delete";
-      deleteBtn.style.marginLeft = "10px";
-      deleteBtn.addEventListener("click", () => {
-        const idx = presetNames.indexOf(name);
-        if (idx !== -1) {
-          presetNames.splice(idx, 1);
-          saveData();
-          populateNameSelect();
-          populateAutoNameSelect();
-          li.remove();
-        }
-      });
-
-      li.appendChild(deleteBtn);
-      namesList.appendChild(li);
+    const deleteBtn = document.createElement("button");
+    deleteBtn.textContent = "Delete";
+    deleteBtn.style.marginLeft = "10px";
+    deleteBtn.addEventListener("click", () => {
+      const idx = presetNames.indexOf(name);
+      if (idx !== -1) {
+        presetNames.splice(idx, 1);
+        saveData();
+        populateNameSelect();
+        populateAutoNameSelect();
+        li.remove();
+      }
     });
 
-    manageNamesModal.style.display = "block";
+    li.appendChild(deleteBtn);
+    namesList.appendChild(li);
   });
+
+  manageNamesModal.style.display = "block";
+});
 
 addNameBtn.addEventListener("click", () => {
   const newName = newNameInput.value.trim();
@@ -920,20 +965,26 @@ addNameBtn.addEventListener("click", () => {
     manageNamesModal.style.display = "none";
   });
 
-  clearAllBtn.addEventListener("click", () => {
-    if (confirm("Are you sure you want to clear all bookings?")) {
-      bookings = {};
-      seatsTaken = {};
-      for (let i = 1; i <= 28; i++) {
-        bookings[i] = {};
-        seatsTaken[i] = 0;
-      }
-      saveData();
-      refreshTables();
-      clearSquadsPresent();
-      alert("All bookings cleared.");
+ clearAllBtn.addEventListener("click", async () => {
+  const isAuthorized = await verifyAdminPassword();
+  
+  if (!isAuthorized) {
+    return;
+  }
+  
+  if (confirm("Are you sure you want to clear all bookings?")) {
+    bookings = {};
+    seatsTaken = {};
+    for (let i = 1; i <= 28; i++) {
+      bookings[i] = {};
+      seatsTaken[i] = 0;
     }
-  });
+    saveData();
+    refreshTables();
+    clearSquadsPresent();
+    alert("All bookings cleared.");
+  }
+});
 
   function updateExitSelectOnBookingsChange() {
     if (selectedTableNumber) {
@@ -952,6 +1003,7 @@ addNameBtn.addEventListener("click", () => {
   // Initial refresh
   refreshTables();
 });
+
 
 
 
